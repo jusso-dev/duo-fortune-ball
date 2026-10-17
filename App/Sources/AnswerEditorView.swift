@@ -6,6 +6,7 @@ struct AnswerEditorView: View {
     let model: FortuneModel
     @State private var newText = ""
     @State private var newTone: AnswerTone = .yes
+    @State private var confirmingReset = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -48,7 +49,19 @@ struct AnswerEditorView: View {
                 }
                 Section {
                     Button("Reset to original answers", role: .destructive) {
-                        model.editAnswers { $0.resetToOriginal() }
+                        confirmingReset = true
+                    }
+                    .confirmationDialog(
+                        "Reset to the original answers?",
+                        isPresented: $confirmingReset,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Reset answers", role: .destructive) {
+                            model.editAnswers { $0.resetToOriginal() }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("Your own answers will be removed. A copy of the current set is kept as a backup.")
                     }
                 }
             }

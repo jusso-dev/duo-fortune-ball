@@ -6,22 +6,28 @@ import FortuneCore
 struct PodView: View {
     var openFraction: Double
     var answer: Answer?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { proxy in
             let size = min(proxy.size.width, proxy.size.height)
-            let spread = size * 0.32 * openFraction
+            // With Reduce Motion on, the shells stay put and the card
+            // cross-fades in instead of the shells swinging apart.
+            let motion = reduceMotion ? 0 : openFraction
+            let spread = size * 0.32 * motion
             ZStack {
                 AnswerCard(answer: answer)
                     .frame(width: size * 0.62, height: size * 0.42)
-                    .scaleEffect(0.6 + 0.4 * openFraction)
+                    .scaleEffect(0.6 + 0.4 * (reduceMotion ? 1 : openFraction))
                     .opacity(openFraction)
+                    .zIndex(reduceMotion ? 1 : 0)
 
                 PodShell()
                     .fill(Palette.eucalyptus)
                     .overlay(PodShell().stroke(Palette.wattle, lineWidth: 2))
                     .frame(width: size * 0.5, height: size * 0.8)
-                    .rotationEffect(.degrees(-18 * openFraction))
+                    .rotationEffect(.degrees(-18 * motion))
+                    .opacity(reduceMotion ? 1 - openFraction : 1)
                     .offset(x: -size * 0.13 - spread)
 
                 PodShell()
@@ -29,7 +35,8 @@ struct PodView: View {
                     .overlay(PodShell().stroke(Palette.wattle, lineWidth: 2))
                     .frame(width: size * 0.5, height: size * 0.8)
                     .scaleEffect(x: -1, y: 1)
-                    .rotationEffect(.degrees(18 * openFraction))
+                    .rotationEffect(.degrees(18 * motion))
+                    .opacity(reduceMotion ? 1 - openFraction : 1)
                     .offset(x: size * 0.13 + spread)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
