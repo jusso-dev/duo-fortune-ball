@@ -15,12 +15,16 @@ final class FortuneModel {
     let foldService: any FoldStateService
     private let store: any AnswerSetStore
 
-    init(foldService: any FoldStateService, store: any AnswerSetStore) {
+    init(
+        foldService: any FoldStateService,
+        store: any AnswerSetStore,
+        generator: any RandomNumberGenerator = SystemRandomNumberGenerator()
+    ) {
         let set = store.loadOrOriginal()
         self.foldService = foldService
         self.store = store
         self.answerSet = set
-        self.machine = RevealMachine(answers: set.answers, posture: foldService.current)
+        self.machine = RevealMachine(answers: set.answers, posture: foldService.current, generator: generator)
     }
 
     var phase: RevealPhase { machine.phase }

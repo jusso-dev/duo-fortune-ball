@@ -78,6 +78,39 @@ final class FoldFortuneTests: XCTestCase {
         XCTAssertEqual(model.lastError, .emptyText)
     }
 
+    func testMockedLaunchStates() {
+        let question = "Will the bus be on time?"
+        let closed = FortuneModel.mocked(.closed, question: question)
+        XCTAssertEqual(closed.phase, .asking(question: question))
+        XCTAssertEqual(closed.mode, .fold)
+        XCTAssertEqual(closed.promptText, "Open your phone to reveal the answer.")
+
+        let half = FortuneModel.mocked(.half, question: question)
+        XCTAssertEqual(half.phase, .opening(question: question, progress: 0.5))
+
+        let open = FortuneModel.mocked(.open, question: question)
+        let again = FortuneModel.mocked(.open, question: question)
+        XCTAssertNotNil(open.phase.answer)
+        XCTAssertEqual(open.phase.answer?.text, again.phase.answer?.text, "mocked answers must be repeatable")
+
+        let tap = FortuneModel.mocked(.tap, question: question)
+        XCTAssertEqual(tap.mode, .tap)
+        XCTAssertEqual(tap.phase, .asking(question: question))
+    }
+
+    func testLaunchOptionsReadArguments() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "LaunchOptionsTests"))
+        defer { defaults.removePersistentDomain(forName: "LaunchOptionsTests") }
+        XCTAssertNil(LaunchOptions(defaults: defaults).mockFold)
+        defaults.set("half", forKey: "mockFold")
+        defaults.set("Q?", forKey: "mockQuestion")
+        let options = LaunchOptions(defaults: defaults)
+        XCTAssertEqual(options.mockFold, .half)
+        XCTAssertEqual(options.mockQuestion, "Q?")
+        defaults.set("sideways", forKey: "mockFold")
+        XCTAssertNil(LaunchOptions(defaults: defaults).mockFold)
+    }
+
     func testShareCardRendersAt1080By1350() throws {
         let card = ShareCard(question: "Will the bus be on time?", answer: AnswerSet.original.answers[0])
         let png = try XCTUnwrap(ShareCardView.renderPNG(card))
