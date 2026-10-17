@@ -35,6 +35,15 @@ final class FoldFortuneTests: XCTestCase {
         XCTAssertEqual(model.revealAnnouncement, model.phase.answer.map { "Answer: \($0.text)" })
     }
 
+    func testPromptMatchesPosture() {
+        let closed = FortuneModel(foldService: MockFoldStateService(initial: .closed), store: InMemoryAnswerSetStore())
+        XCTAssertEqual(closed.promptText, "Open your phone to reveal the answer.")
+        let open = FortuneModel(foldService: MockFoldStateService(initial: .open), store: InMemoryAnswerSetStore())
+        XCTAssertEqual(open.promptText, "Close and reopen, or tap Reveal.")
+        let flat = FortuneModel(foldService: UnavailableFoldStateService(), store: InMemoryAnswerSetStore())
+        XCTAssertEqual(flat.promptText, "Tap Reveal when you're ready.")
+    }
+
     func testNoAnnouncementBeforeReveal() {
         let model = FortuneModel(foldService: MockFoldStateService(initial: .closed), store: InMemoryAnswerSetStore())
         model.send(.questionChanged("Soon?"))

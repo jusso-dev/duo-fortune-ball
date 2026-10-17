@@ -28,6 +28,19 @@ final class FortuneModel {
     var hint: RevealHint { machine.hint }
     var canReveal: Bool { machine.canReveal }
 
+    /// The instruction under the question field.
+    var promptText: String {
+        switch mode {
+        case .tap:
+            "Tap Reveal when you're ready."
+        case .fold where machine.foldArmed:
+            "Open your phone to reveal the answer."
+        case .fold:
+            // Already open (for example at launch), so opening won't count.
+            "Close and reopen, or tap Reveal."
+        }
+    }
+
     /// What VoiceOver reads for the revealed answer, or nil before a reveal.
     var revealAnnouncement: String? { phase.answer.map { "Answer: \($0.text)" } }
 

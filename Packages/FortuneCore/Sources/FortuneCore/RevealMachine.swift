@@ -55,6 +55,14 @@ public enum RevealHint: Equatable, Sendable {
 /// an accessible alternative on iPhone Duo.
 public struct RevealMachine {
     public static let maxQuestionLength = 140
+    /// The hinge has to pass this before an armed phone starts opening, so a
+    /// settle of a degree or two while typing on the closed phone is ignored.
+    public static let openingStartFraction = 20.0 / 180.0
+    /// Hysteresis: an opening that falls back below this returns to asking.
+    public static let openingCancelFraction = 10.0 / 180.0
+    /// An opening at or past this reveals, so a book-style resting angle of
+    /// about 155 degrees or more counts without opening flat.
+    public static let revealFraction = 0.85
 
     public private(set) var phase: RevealPhase = .asking(question: "")
     public private(set) var posture: FoldPosture
@@ -123,10 +131,18 @@ public struct RevealMachine {
             if case .opening(let q, _) = phase { phase = .asking(question: q) }
 
         case (.asking(let q), .partiallyOpen):
-            // Only an opening gesture that starts from fully closed counts.
+            // Only an opening gesture that starts from fully closed counts,
+            // and only once it's past a small settle.
             guard foldArmed else { return }
+            let progress = next.openFraction()
+            guard progress >= Self.openingStartFraction else { return }
             if canReveal {
-                phase = .opening(question: q, progress: next.openFraction())
+                if progress >= Self.revealFraction {
+                    foldArmed = false
+                    reveal()
+                } else {
+                    phase = .opening(question: q, progress: progress)
+                }
             } else {
                 // Ask first, then close and open again.
                 foldArmed = false
@@ -139,7 +155,15 @@ public struct RevealMachine {
             if canReveal { reveal() } else { hint = .askFirst }
 
         case (.opening(let q, _), .partiallyOpen):
-            phase = .opening(question: q, progress: next.openFraction())
+            let progress = next.openFraction()
+            if progress >= Self.revealFraction {
+                reveal()
+            } else if progress < Self.openingCancelFraction {
+                // Nearly shut again. Back to the ask screen, still armed.
+                phase = .asking(question: q)
+            } else {
+                phase = .opening(question: q, progress: progress)
+            }
 
         case (.opening, .open):
             reveal()
