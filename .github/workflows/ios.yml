@@ -14,8 +14,9 @@ permissions:
 
 jobs:
   ios:
-    name: FortuneCore tests and app build (hosted macOS)
-    runs-on: macos-15
+    name: FortuneCore tests and app build (hosted Xcode 27)
+    # Hosted arm64 preview image with Xcode 27.0 and 27.2 beta, iOS 27.1 SDK and runtime.
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +24,7 @@ jobs:
       - name: List installed Xcodes and SDKs
         run: |
           ls -d /Applications/Xcode*.app || true
-          for x in $(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V -r); do
+          for x in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V -r); do
             echo "== $x"
             DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version || true
             DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -showsdks 2>/dev/null | grep -i iphonesimulator || true
@@ -35,7 +36,7 @@ jobs:
       - name: Select newest Xcode with the iPhone Duo SDK
         run: |
           picked=""
-          for x in $(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V -r); do
+          for x in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V -r); do
             sdk=$(DEVELOPER_DIR="$x/Contents/Developer" xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null || true)
             echo "$x -> iphonesimulator SDK ${sdk:-none}"
             if [ -n "$sdk" ] && [ "$(printf '%s\n27.1\n' "$sdk" | sort -V | head -1)" = "27.1" ]; then
@@ -60,26 +61,40 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Pick an iPhone simulator (iOS 27.1 or later)
+      # The image has no pre-made iOS 27.1 simulators, so create one. Use an
+      # iPhone Duo device type if this Xcode ships one, otherwise the newest iPhone.
+      - name: Create an iPhone simulator (iOS 27.1 or later)
         id: sim
         run: |
-          SIM_ID=$(xcrun simctl list devices available -j | python3 -c '
-          import json, re, sys
-          d = json.load(sys.stdin)["devices"]
-          def ver(r):
-              m = re.search(r"iOS-(\d+)-(\d+)", r)
+          echo "== Device types"; xcrun simctl list devicetypes
+          echo "== Runtimes"; xcrun simctl list runtimes
+          read -r RUNTIME DEVTYPE NAME <<< "$(python3 -c '
+          import json, re, subprocess
+          j = lambda *a: json.loads(subprocess.check_output(["xcrun", "simctl", "list", "-j", *a]))
+          def ver(s):
+              m = re.match(r"(\d+)\.(\d+)", s)
               return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
-          cands = [(ver(r), x["name"], x["udid"]) for r, v in d.items() if ver(r) >= (27, 1) for x in v if x["name"].startswith("iPhone")]
-          cands.sort()
-          duo = [c for c in cands if "Duo" in c[1]]
-          pick = (duo or cands or [None])[-1]
-          print(pick[2] if pick else "")
-          ')
-          if [ -z "$SIM_ID" ]; then
-            echo "::error::No iPhone simulator with iOS 27.1+ is available on this image."
-            xcrun simctl list runtimes
+          rts = [r for r in j("runtimes")["runtimes"]
+                 if r.get("platform", "iOS") == "iOS" and r.get("isAvailable", True) and ver(r["version"]) >= (27, 1)]
+          rts.sort(key=lambda r: ver(r["version"]))
+          if not rts:
+              print("", "", ""); raise SystemExit
+          rt = rts[-1]
+          supported = rt.get("supportedDeviceTypes") or j("devicetypes")["devicetypes"]
+          phones = [d for d in supported if d["name"].startswith("iPhone")]
+          duo = [d for d in phones if "Duo" in d["name"]]
+          dt = (duo or phones or [None])[-1]
+          print(rt["identifier"], dt["identifier"] if dt else "", (dt["name"] if dt else "").replace(" ", "_"))
+          ')"
+          if [ -z "$RUNTIME" ] || [ -z "$DEVTYPE" ]; then
+            echo "::error::No iOS 27.1+ simulator runtime with an iPhone device type on this image."
             exit 1
           fi
+          SIM_ID=$(xcrun simctl create "CI ${NAME//_/ }" "$DEVTYPE" "$RUNTIME")
+          case "$NAME" in
+            *Duo*) echo "::notice::Simulator: ${NAME//_/ } on $RUNTIME (iPhone Duo device type)." ;;
+            *) echo "::notice::Simulator: ${NAME//_/ } on $RUNTIME. No iPhone Duo device type on this image, so hinge paths run the no-hinge fallback." ;;
+          esac
           xcrun simctl list devices | grep "$SIM_ID"
           echo "id=$SIM_ID" >> "$GITHUB_OUTPUT"
 
