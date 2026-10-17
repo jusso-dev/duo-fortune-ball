@@ -5,11 +5,20 @@ import FortuneCore
 struct RevealView: View {
     let model: FortuneModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The rendered share card for the current reveal, or nil before one.
+    @State private var shared: (item: SharedFortune, preview: Image)?
 
     var body: some View {
         ViewThatFits(in: .vertical) {
             content
             ScrollView { content }
+        }
+        .task(id: ShareCard(phase: model.phase)) {
+            shared = nil
+            guard let card = ShareCard(phase: model.phase),
+                  let png = ShareCardView.renderPNG(card),
+                  let image = UIImage(data: png) else { return }
+            shared = (SharedFortune(card: card, png: png), Image(uiImage: image))
         }
     }
 
@@ -39,9 +48,21 @@ struct RevealView: View {
                         .font(.callout)
                         .foregroundStyle(Palette.cream.opacity(0.8))
                 }
-                Button("Ask again") { model.send(.askAgain) }
-                    .buttonStyle(.bordered)
-                    .tint(Palette.wattle)
+                HStack(spacing: 12) {
+                    Button("Ask again") { model.send(.askAgain) }
+                        .buttonStyle(.bordered)
+                        .tint(Palette.wattle)
+                    if let shared {
+                        ShareLink(
+                            item: shared.item,
+                            preview: SharePreview(shared.item.card.title, image: shared.preview)
+                        ) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(Palette.wattle)
+                    }
+                }
             }
         }
         .padding(24)
