@@ -38,7 +38,7 @@ struct RootView: View {
             .toolbar {
                 // An icon and a title, so the item can show in a vertical
                 // bar (icon), a horizontal bar, or the overflow menu.
-                ToolbarItem(placement: .topBarPinnedTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Answers", systemImage: "slider.horizontal.3") { editing = true }
                         .tint(Palette.wattle)
                         .accessibilityHint("Edit the answers and turn sounds on or off")

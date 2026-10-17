@@ -9,21 +9,14 @@ struct RevealView: View {
     @State private var shared: (item: SharedFortune, preview: Image)?
 
     var body: some View {
-        // Partly open, the question and pod sit on one side of the fold and
-        // the buttons on the other, so nothing lands in the crease.
+        // Partly open, the pod sits on one side of the fold and the question
+        // and buttons on the other, so nothing lands in the crease.
         FoldAwareLayout {
-            VStack(spacing: 24) {
-                Text(model.phase.question)
-                    .font(.title3)
-                    .foregroundStyle(Palette.cream)
-                    .multilineTextAlignment(.center)
-
-                PodView(openFraction: openFraction, answer: model.phase.answer)
-                    .frame(maxWidth: 420)
-                    .animation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.25), value: openFraction)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(model.revealAnnouncement ?? "Opening")
-            }
+            PodView(openFraction: openFraction, answer: model.phase.answer)
+                .frame(maxWidth: 420)
+                .animation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.25), value: openFraction)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(model.revealAnnouncement ?? "Opening")
         } secondary: {
             actions
         }
@@ -42,6 +35,11 @@ struct RevealView: View {
 
     private var actions: some View {
         VStack(spacing: 24) {
+            Text(model.phase.question)
+                .font(.title3)
+                .foregroundStyle(Palette.cream)
+                .multilineTextAlignment(.center)
+
             if model.phase.answer == nil {
                 // Opening: the hinge may rest short of fully open, so always
                 // offer a way forward, including for VoiceOver.

@@ -10,11 +10,11 @@ import SwiftUI
 /// It is always the same view, so opening or folding the phone animates
 /// rather than rebuilding the screen.
 ///
-/// The primary part is flexible artwork, such as the pod, that shrinks to
-/// the space it gets and only scrolls if its text alone is too tall. The
-/// secondary part holds the controls and always sits in a scroll view, so
-/// large Dynamic Type sizes never clip it and a focused text field keeps
-/// its identity when the keyboard appears.
+/// The primary part is artwork, such as the pod, sized to exactly the space
+/// its side gets and centred in it, so it shrinks rather than overflowing.
+/// The secondary part holds the text and controls and always sits in a
+/// scroll view, so large Dynamic Type sizes never clip it and a focused text
+/// field keeps its identity when the keyboard appears.
 struct FoldAwareLayout<Primary: View, Secondary: View>: View {
     var primary: Primary
     var secondary: Secondary
@@ -26,24 +26,15 @@ struct FoldAwareLayout<Primary: View, Secondary: View>: View {
 
     var body: some View {
         ArrangementView {
-            FitOrScroll { primary.padding(24) }
+            GeometryReader { proxy in
+                primary
+                    .padding(24)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+            }
         } secondary: {
             CentredScroll { secondary.padding(24) }
         }
         .arrangementViewStyle(.split)
-    }
-}
-
-/// Shows content in the space it's given, letting flexible views such as
-/// the pod shrink, or in a scroll view when even the fixed parts don't fit.
-struct FitOrScroll<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        ViewThatFits(in: .vertical) {
-            content
-            ScrollView { content }
-        }
     }
 }
 

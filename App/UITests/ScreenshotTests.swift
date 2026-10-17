@@ -41,6 +41,7 @@ final class ScreenshotTests: XCTestCase {
         let app = launch(fold: "tap")
         let reveal = app.buttons["Reveal"]
         XCTAssertTrue(reveal.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Answers"].exists, "the Answers toolbar button is missing")
         reveal.tap()
         XCTAssertTrue(app.buttons["Ask again"].waitForExistence(timeout: 10))
         try save("iphone-tap-reveal")
