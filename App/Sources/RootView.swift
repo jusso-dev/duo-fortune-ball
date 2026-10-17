@@ -5,6 +5,10 @@ struct RootView: View {
     @State private var hinge: HingeFoldStateService
     @State private var model: FortuneModel
     @State private var editing = false
+    @State private var planner = FeedbackPlanner()
+    @State private var pulse = FeedbackPulse()
+    @State private var sounds = SoundPlayer()
+    @AppStorage(FeedbackSettings.soundKey) private var soundEnabled = true
 
     init() {
         let hinge = HingeFoldStateService()
@@ -33,7 +37,7 @@ struct RootView: View {
                     .foregroundStyle(Palette.wattle)
                     .padding()
             }
-            .accessibilityLabel("Edit answers")
+            .accessibilityLabel("Answers and settings")
         }
         .feedingHinge(into: hinge)
         .task { await model.observeFold() }
@@ -43,6 +47,12 @@ struct RootView: View {
             guard answer != nil, let text = model.revealAnnouncement else { return }
             AccessibilityNotification.Announcement(text).post()
         }
+        .onChange(of: model.phase) { old, new in
+            guard let cue = planner.cue(from: old, to: new, mode: model.mode) else { return }
+            pulse.fire(cue)
+            if soundEnabled, let sound = cue.sound { sounds.play(sound) }
+        }
+        .sensoryFeedback(trigger: pulse) { _, new in new.cue?.haptic.sensoryFeedback }
         .sheet(isPresented: $editing) { AnswerEditorView(model: model) }
     }
 }

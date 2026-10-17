@@ -30,13 +30,20 @@ There is no dedicated "outer display" API. Apple's guidance is that the outer di
 
 The app target adapts `onHingeChange` into a small `FoldStateService` protocol in the `FortuneCore` package. That keeps the logic testable on Linux with a scriptable mock, and gives a clean fallback (`.unavailable`) on iPhones without a hinge, where the app uses tap to reveal.
 
+## Haptics and sound
+
+On iPhone Duo, opening the phone gives a light haptic tick for every 15 degrees of hinge travel and a short pod creak as it starts to open. The reveal has its own haptic and chime for each tone: success for yes, warning for no, and a soft tap for maybe and playful. In tap mode only the reveal gives feedback.
+
+Sounds use an ambient audio session, so the silent switch mutes them, and they can be turned off in the answers sheet. All sounds are synthesised by `scripts/make_sounds.py` (see `App/Resources/Sounds/CREDITS.md`).
+
 ## Layout
 
 ```
 project.yml                  XcodeGen spec for the app (generate the .xcodeproj, it is not committed)
 App/Sources                  SwiftUI app target
-App/Resources                Asset catalogue
+App/Resources                Asset catalogue and sounds
 App/Tests                    App unit tests (need a Mac)
+scripts                      Sound synthesis script
 Packages/FortuneCore         Pure Swift logic package, no SwiftUI or UIKit, builds on Linux
 .github/workflows/ios.yml    CI: FortuneCore tests, then app build and tests on the hosted xcode-27 image
 ```
