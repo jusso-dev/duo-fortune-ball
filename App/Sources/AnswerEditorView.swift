@@ -24,6 +24,11 @@ struct AnswerEditorView: View {
                     if let error = model.lastError {
                         Text(error.message).font(.footnote).foregroundStyle(Palette.ochre)
                     }
+                    if model.saveFailed {
+                        Text("Couldn't save your answers. Your changes will be lost when the app closes.")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.ochre)
+                    }
                 }
                 Section("Answers") {
                     ForEach(model.answerSet.answers) { answer in

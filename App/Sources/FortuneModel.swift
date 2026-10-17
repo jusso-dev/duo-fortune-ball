@@ -9,6 +9,9 @@ final class FortuneModel {
     private(set) var machine: RevealMachine
     private(set) var answerSet: AnswerSet
     var lastError: AnswerSetError?
+    /// True when the last edit could not be written to disk. The edit still
+    /// applies for this session.
+    private(set) var saveFailed = false
     let foldService: any FoldStateService
     private let store: any AnswerSetStore
 
@@ -34,7 +37,12 @@ final class FortuneModel {
         var copy = answerSet
         do {
             try edit(&copy)
-            try? store.save(copy)
+            do {
+                try store.save(copy)
+                saveFailed = false
+            } catch {
+                saveFailed = true
+            }
             answerSet = copy
             machine.answers = copy.answers
             lastError = nil

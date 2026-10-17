@@ -123,6 +123,54 @@ final class AnswerSetStoreTests: XCTestCase {
         XCTAssertEqual(store.loadOrOriginal(), .original)
     }
 
+    func testSaveKeepsBackupOfPreviousGoodFile() throws {
+        let store = FileAnswerSetStore(url: dir.appendingPathComponent("AnswerSet.json"))
+        var first = AnswerSet.original
+        try first.add("First save", tone: .yes)
+        try store.save(first)
+        XCTAssertNil(try store.loadBackup(), "nothing to back up on the first save")
+        var second = first
+        try second.add("Second save", tone: .no)
+        try store.save(second)
+        XCTAssertEqual(try store.load(), second)
+        XCTAssertEqual(try store.loadBackup(), first)
+    }
+
+    func testCorruptFileFallsBackToBackup() throws {
+        let store = FileAnswerSetStore(url: dir.appendingPathComponent("AnswerSet.json"))
+        var first = AnswerSet.original
+        try first.add("Keep me", tone: .playful)
+        try store.save(first)
+        try store.save(first)
+        try Data("not json".utf8).write(to: store.url)
+        XCTAssertEqual(store.loadOrOriginal(), first)
+    }
+
+    func testSavingOverUnreadableFileKeepsItAside() throws {
+        let store = FileAnswerSetStore(url: dir.appendingPathComponent("AnswerSet.json"))
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data("half written".utf8).write(to: store.url)
+        try store.save(.original)
+        XCTAssertEqual(try store.load(), .original)
+        XCTAssertEqual(try Data(contentsOf: store.unreadableURL), Data("half written".utf8))
+        XCTAssertNil(try store.loadBackup(), "an unreadable file is not a backup")
+    }
+
+    func testNewerSchemaIsNeitherLoadedNorOverwritten() throws {
+        let store = FileAnswerSetStore(url: dir.appendingPathComponent("AnswerSet.json"))
+        var future = AnswerSet(name: "future", answers: [Answer(text: "From the future", tone: .yes)])
+        future.schemaVersion = AnswerSet.currentSchemaVersion + 1
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let original = try JSONEncoder().encode(future)
+        try original.write(to: store.url)
+        XCTAssertThrowsError(try store.load()) { error in
+            XCTAssertEqual(error as? AnswerSetStoreError, .unsupportedSchemaVersion(future.schemaVersion))
+        }
+        XCTAssertEqual(store.loadOrOriginal(), .original)
+        XCTAssertThrowsError(try store.save(.original))
+        XCTAssertEqual(try Data(contentsOf: store.url), original)
+    }
+
     func testInMemoryStore() throws {
         let store = InMemoryAnswerSetStore()
         XCTAssertEqual(store.loadOrOriginal(), .original)
