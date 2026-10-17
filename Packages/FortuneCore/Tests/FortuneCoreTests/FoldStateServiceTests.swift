@@ -96,4 +96,43 @@ final class SeededGeneratorTests: XCTestCase {
         XCTAssertTrue(picks.allSatisfy { (0..<5).contains($0) })
         XCTAssertGreaterThan(Set(picks).count, 1)
     }
+
+    // Regression: the snapshot used to be yielded after the lock was dropped,
+    // so a send racing a new subscriber could deliver a newer posture first
+    // and then the stale snapshot. Every stream must see angles only rise.
+    func testSubscribersRacingSendsNeverSeeAStaleSnapshot() async {
+        let service = BroadcastFoldStateService(initial: .partiallyOpen(angleDegrees: 0))
+        let streamsLock = NSLock()
+        nonisolated(unsafe) var streams: [AsyncStream<FoldPosture>] = []
+        let sender = Thread {
+            for angle in 1...400 { service.send(.partiallyOpen(angleDegrees: Double(angle))) }
+        }
+        sender.start()
+        DispatchQueue.concurrentPerform(iterations: 64) { _ in
+            let stream = service.updates
+            streamsLock.lock(); streams.append(stream); streamsLock.unlock()
+        }
+        while !sender.isFinished { await Task.yield() }
+        service.send(.open)
+        for stream in streams {
+            var last = -1.0
+            for await posture in stream {
+                guard case .partiallyOpen(let angle) = posture else {
+                    XCTAssertEqual(posture, .open)
+                    break
+                }
+                XCTAssertGreaterThan(angle, last, "stale posture delivered out of order")
+                last = angle
+            }
+        }
+    }
+
+    func testMockHistoryIsSafeUnderConcurrentSends() {
+        let mock = MockFoldStateService(initial: .closed)
+        DispatchQueue.concurrentPerform(iterations: 200) { i in
+            mock.send(.partiallyOpen(angleDegrees: Double(i + 1)))
+        }
+        XCTAssertEqual(mock.history.count, 201)
+        XCTAssertEqual(mock.history.last, mock.current)
+    }
 }
