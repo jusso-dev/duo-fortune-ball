@@ -17,7 +17,7 @@ jobs:
     name: FortuneCore tests and app build (hosted Xcode 27)
     # Hosted arm64 preview image with Xcode 27.0 and 27.2 beta, iOS 27.1 SDK and runtime.
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +60,26 @@ jobs:
 
       - name: Generate Xcode project
         run: xcodegen generate
+
+      # The image only ships the iOS 27.0 simulator runtime. If no 27.1+ runtime
+      # is installed, download the one that matches the selected Xcode.
+      - name: Ensure an iOS 27.1+ simulator runtime
+        run: |
+          has_rt() {
+            xcrun simctl list -j runtimes | python3 -c '
+          import json, re, sys
+          ok = any(r.get("platform", "iOS") == "iOS" and r.get("isAvailable", True)
+                   and tuple(int(x) for x in re.findall(r"\d+", r["version"])[:2]) >= (27, 1)
+                   for r in json.load(sys.stdin)["runtimes"])
+          sys.exit(0 if ok else 1)
+          '
+          }
+          if has_rt; then echo "iOS 27.1+ runtime already installed"; else
+            echo "Downloading the iOS simulator runtime for $(xcodebuild -version | head -1)"
+            xcodebuild -downloadPlatform iOS
+            xcrun simctl list runtimes
+            has_rt || { echo "::error::Downloaded runtime is still older than iOS 27.1."; exit 1; }
+          fi
 
       # The image has no pre-made iOS 27.1 simulators, so create one. Use an
       # iPhone Duo device type if this Xcode ships one, otherwise the newest iPhone.
