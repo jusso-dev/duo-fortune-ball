@@ -28,11 +28,21 @@ Background: [Preparing your app for iPhone Duo](https://developer.apple.com/docu
 
 There is no dedicated "outer display" API. Apple's guidance is that the outer display behaves like a normal compact width iPhone, so the app treats hinge status `.closed` as "asking on the outer display" and uses size classes for layout. Apple advises using hinge data for live interactions and effects and the arrangement and reserved region APIs for layout, which is what this app does.
 
+### Layout and the fold
+
+Both screens go through `FoldAwareLayout`. On a flat screen it stacks the pod above the controls, or puts them side by side when height is compact. When the fold divides the view (iPhone Duo partly open), `reservedRegions(kind: .division)` reports an active region, and the layout switches to an `ArrangementView` with the split style. The pod then sits on one side of the fold and the question field or buttons on the other, so nothing interactive sits in the crease. Other parts follow the Human Interface Guidelines and Apple's iPhone Duo guidance:
+
+- Content stays inside the safe area. Only the background colour extends under the status bar and camera.
+- The Answers and Done buttons are toolbar items with an icon and a title, so iPhone Duo can show them in its vertical bar.
+- The palette is dark, so the app keeps a dark appearance and the status bar stays legible.
+- The pod shells stay inside their frame and the answer card draws above them, so long answers are never covered.
+- Every screen scrolls instead of clipping at large Dynamic Type sizes.
+
 The app target adapts `onHingeChange` into a small `FoldStateService` protocol in the `FortuneCore` package. That keeps the logic testable on Linux with a scriptable mock, and gives a clean fallback (`.unavailable`) on iPhones without a hinge, where the app uses tap to reveal.
 
 ## Haptics and sound
 
-On iPhone Duo, opening the phone gives a light haptic tick for every 15 degrees of hinge travel and a short pod creak as it starts to open. The reveal has its own haptic and chime for each tone: success for yes, warning for no, and a soft tap for maybe and playful. In tap mode only the reveal gives feedback.
+On iPhone Duo, opening the phone gives a light haptic tick for every 15 degrees of hinge travel and a short pod creak as it starts to open. The reveal has its own impact haptic and chime for each tone: firm for yes, heavy for no, and soft for maybe and playful. Success and warning haptics are left to their system meanings, as the Human Interface Guidelines ask. In tap mode only the reveal gives feedback.
 
 Sounds use an ambient audio session, so the silent switch mutes them, and they can be turned off in the answers sheet. All sounds are synthesised by `scripts/make_sounds.py` (see `App/Resources/Sounds/CREDITS.md`).
 

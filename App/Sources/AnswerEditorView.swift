@@ -76,8 +76,14 @@ struct AnswerEditorView: View {
             }
             .navigationTitle("Answers")
             .toolbar {
-                EditButton()
-                Button("Done") { dismiss() }
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                }
+                // Icon and title, so Done stays visible in iPhone Duo's
+                // vertical bar on the outer display.
+                ToolbarItem(placement: .topBarPinnedTrailing) {
+                    Button("Done", systemImage: "checkmark") { dismiss() }
+                }
             }
         }
     }

@@ -7,20 +7,20 @@ struct AskView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        // At large Dynamic Type sizes the content can outgrow the outer
-        // display, so fall back to scrolling rather than clipping.
-        ViewThatFits(in: .vertical) {
-            content
-            ScrollView { content }
-                .scrollDismissesKeyboard(.interactively)
-        }
-    }
-
-    private var content: some View {
-        VStack(spacing: 20) {
+        // Usually the outer display, where there is no fold. If the phone
+        // is partly open while asking, the pod and the controls go either
+        // side of the fold.
+        FoldAwareLayout(spacing: 20) {
             PodView(openFraction: 0, answer: nil)
                 .frame(maxWidth: 180, maxHeight: 180)
+        } secondary: {
+            controls
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
 
+    private var controls: some View {
+        VStack(spacing: 20) {
             TextField("Ask a yes or no question", text: Binding(
                 get: { model.phase.question },
                 set: { text in
@@ -63,6 +63,5 @@ struct AskView: View {
             .disabled(!model.canReveal)
             .accessibilityHint("Shows the answer without opening the phone")
         }
-        .padding(24)
     }
 }

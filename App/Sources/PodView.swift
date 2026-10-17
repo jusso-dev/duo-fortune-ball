@@ -14,19 +14,15 @@ struct PodView: View {
             // With Reduce Motion on, the shells stay put and the card
             // cross-fades in instead of the shells swinging apart.
             let motion = reduceMotion ? 0 : openFraction
-            let spread = size * 0.32 * motion
+            // Fully open, the shells still sit inside the pod's own frame,
+            // so they never run past the screen edge or the layout margins.
+            let spread = size * 0.16 * motion
             ZStack {
-                AnswerCard(answer: answer)
-                    .frame(width: size * 0.62, height: size * 0.42)
-                    .scaleEffect(0.6 + 0.4 * (reduceMotion ? 1 : openFraction))
-                    .opacity(openFraction)
-                    .zIndex(reduceMotion ? 1 : 0)
-
                 PodShell()
                     .fill(Palette.eucalyptus)
                     .overlay(PodShell().stroke(Palette.wattle, lineWidth: 2))
                     .frame(width: size * 0.5, height: size * 0.8)
-                    .rotationEffect(.degrees(-18 * motion))
+                    .rotationEffect(.degrees(-12 * motion))
                     .opacity(reduceMotion ? 1 - openFraction : 1)
                     .offset(x: -size * 0.13 - spread)
 
@@ -35,9 +31,16 @@ struct PodView: View {
                     .overlay(PodShell().stroke(Palette.wattle, lineWidth: 2))
                     .frame(width: size * 0.5, height: size * 0.8)
                     .scaleEffect(x: -1, y: 1)
-                    .rotationEffect(.degrees(18 * motion))
+                    .rotationEffect(.degrees(12 * motion))
                     .opacity(reduceMotion ? 1 - openFraction : 1)
                     .offset(x: size * 0.13 + spread)
+
+                // In front of the shells, so a long answer is never hidden
+                // behind them. It is invisible until the pod opens.
+                AnswerCard(answer: answer)
+                    .frame(width: size * 0.62, height: size * 0.42)
+                    .scaleEffect(0.6 + 0.4 * (reduceMotion ? 1 : openFraction))
+                    .opacity(openFraction)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }

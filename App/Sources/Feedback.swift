@@ -14,8 +14,8 @@ enum FeedbackCue: Equatable {
     var haptic: Haptic {
         switch self {
         case .opening, .tick: .tick
-        case .reveal(.yes): .success
-        case .reveal(.no): .warning
+        case .reveal(.yes): .firmImpact
+        case .reveal(.no): .heavyImpact
         case .reveal(.maybe), .reveal(.playful): .softImpact
         }
     }
@@ -37,17 +37,22 @@ enum FeedbackCue: Equatable {
 
 /// The haptics the app uses, kept separate from `SensoryFeedback` so the
 /// mapping is easy to test.
+///
+/// The reveal uses impacts, a physical metaphor for the pod springing open.
+/// The Human Interface Guidelines ask that system patterns such as success
+/// and warning keep their documented meanings, and a "no" answer is not a
+/// warning, so tone changes the feel of the impact instead.
 enum Haptic: Equatable {
     case tick
-    case success
-    case warning
+    case firmImpact
+    case heavyImpact
     case softImpact
 
     var sensoryFeedback: SensoryFeedback {
         switch self {
         case .tick: .impact(weight: .light, intensity: 0.5)
-        case .success: .success
-        case .warning: .warning
+        case .firmImpact: .impact(flexibility: .rigid)
+        case .heavyImpact: .impact(weight: .heavy)
         case .softImpact: .impact(flexibility: .soft)
         }
     }
