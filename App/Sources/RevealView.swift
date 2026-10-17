@@ -4,8 +4,16 @@ import FortuneCore
 /// The opening and revealed states, usually on the inner display.
 struct RevealView: View {
     let model: FortuneModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView { content }
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 24) {
             Text(model.phase.question)
                 .font(.title3)
@@ -14,7 +22,7 @@ struct RevealView: View {
 
             PodView(openFraction: openFraction, answer: model.phase.answer)
                 .frame(maxWidth: 420)
-                .animation(.spring(duration: 0.6, bounce: 0.25), value: openFraction)
+                .animation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.25), value: openFraction)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(model.revealAnnouncement ?? "Opening")
 

@@ -17,10 +17,20 @@ final class ShareCardTests: XCTestCase {
     }
 
     func testLongQuestionShortensOnWordBoundary() {
-        let long = Array(repeating: "word", count: 40).joined(separator: " ")
+        // Words of different lengths, so a mid word cut can't pass by luck.
+        let words = ["should", "I", "pack", "an", "umbrella", "for", "the", "long", "weekend", "away", "in", "Batemans", "Bay"]
+        let long = (0..<6).flatMap { _ in words }.joined(separator: " ")
+        for limit in [20, 33, 47, 60, ShareCard.maxQuestionLength] {
+            let short = ShareCard.shorten(long, to: limit)
+            XCTAssertLessThanOrEqual(short.count, limit)
+            XCTAssertTrue(short.hasSuffix("\u{2026}"))
+            let kept = String(short.dropLast())
+            XCTAssertTrue(long.hasPrefix(kept), "not a prefix at limit \(limit)")
+            let next = long[long.index(long.startIndex, offsetBy: kept.count)]
+            XCTAssertEqual(next, " ", "cut mid word at limit \(limit): \(short)")
+        }
         let card = ShareCard(question: long, answer: answer)
         XCTAssertLessThanOrEqual(card.question.count, ShareCard.maxQuestionLength)
-        XCTAssertTrue(card.question.hasSuffix("word\u{2026}"))
     }
 
     func testLongQuestionWithoutSpacesHardCuts() {
