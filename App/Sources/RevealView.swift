@@ -26,10 +26,19 @@ struct RevealView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(model.revealAnnouncement ?? "Opening")
 
-            if model.phase.answer != nil {
-                Text(model.mode == .fold ? "Close your phone to ask again." : "")
-                    .font(.callout)
-                    .foregroundStyle(Palette.cream.opacity(0.8))
+            if model.phase.answer == nil {
+                // Opening: the hinge may rest short of fully open, so always
+                // offer a way forward, including for VoiceOver.
+                Button("Reveal") { model.send(.tapReveal) }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Palette.wattle)
+                    .foregroundStyle(Palette.eucalyptusDeep)
+            } else {
+                if model.mode == .fold {
+                    Text("Close your phone to ask again.")
+                        .font(.callout)
+                        .foregroundStyle(Palette.cream.opacity(0.8))
+                }
                 Button("Ask again") { model.send(.askAgain) }
                     .buttonStyle(.bordered)
                     .tint(Palette.wattle)

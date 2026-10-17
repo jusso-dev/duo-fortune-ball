@@ -45,7 +45,7 @@ struct AskView: View {
                     .foregroundStyle(Palette.ochre)
             }
 
-            Text(model.mode == .fold ? "Open your phone to reveal the answer." : "Tap reveal when you are ready.")
+            Text(model.promptText)
                 .font(.callout)
                 .foregroundStyle(Palette.cream.opacity(0.85))
                 .multilineTextAlignment(.center)

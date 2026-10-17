@@ -233,4 +233,63 @@ final class RevealMachineTests: XCTestCase {
         m.handle(.postureChanged(.open))
         XCTAssertNil(m.phase.answer)
     }
+
+    // FB-1: a settle of a degree or two while typing on the closed phone
+    // must not leave the ask screen. Closed-side twin of the wobble fix.
+    func testSmallSettleWhileClosedStaysAsking() {
+        var m = makeFold()
+        m.handle(.questionChanged("Will it rain?"))
+        for angle in [1.0, 2.0, 0.5, 3.0, 1.0] {
+            m.handle(.postureChanged(.partiallyOpen(angleDegrees: angle)))
+            XCTAssertEqual(m.phase, .asking(question: "Will it rain?"), "settle at \(angle) left asking")
+        }
+        XCTAssertEqual(m.hint, .none)
+        // A real opening still works afterwards.
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 45)))
+        XCTAssertEqual(m.phase, .opening(question: "Will it rain?", progress: 0.25))
+    }
+
+    func testSmallSettleWithoutQuestionDoesNotHint() {
+        var m = makeFold()
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 2)))
+        XCTAssertEqual(m.hint, .none)
+    }
+
+    func testOpeningThatFallsBackNearlyShutReturnsToAsking() {
+        var m = makeFold()
+        m.handle(.questionChanged("Bounce?"))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 30)))
+        XCTAssertEqual(m.phase, .opening(question: "Bounce?", progress: 30.0 / 180.0))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 15)))
+        XCTAssertEqual(m.phase, .opening(question: "Bounce?", progress: 15.0 / 180.0), "inside the hysteresis band")
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 5)))
+        XCTAssertEqual(m.phase, .asking(question: "Bounce?"))
+        XCTAssertTrue(m.foldArmed, "still armed, the phone never opened properly")
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 60)))
+        XCTAssertEqual(m.phase, .opening(question: "Bounce?", progress: 60.0 / 180.0))
+    }
+
+    // FB-2: a Duo resting at a book-style angle reveals without opening flat.
+    func testRestingAtBookAngleReveals() {
+        var m = makeFold()
+        m.handle(.questionChanged("Stuck?"))
+        for angle in [30.0, 90.0, 150.0, 170.0] { m.handle(.postureChanged(.partiallyOpen(angleDegrees: angle))) }
+        XCTAssertNotNil(m.phase.answer)
+    }
+
+    func testJumpFromClosedPastRevealAngleReveals() {
+        var m = makeFold()
+        m.handle(.questionChanged("Quick?"))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 165)))
+        XCTAssertNotNil(m.phase.answer)
+        XCTAssertFalse(m.foldArmed)
+    }
+
+    func testTapRevealWorksDuringOpening() {
+        var m = makeFold()
+        m.handle(.questionChanged("Tap?"))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 100)))
+        m.handle(.tapReveal)
+        XCTAssertNotNil(m.phase.answer)
+    }
 }
