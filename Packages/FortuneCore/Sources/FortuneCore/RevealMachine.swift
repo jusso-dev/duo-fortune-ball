@@ -47,7 +47,9 @@ public enum RevealHint: Equatable, Sendable {
 /// The ask and reveal state machine.
 ///
 /// asking (closed, outer display) -> opening (partially open) -> revealed (open).
-/// Closing mid way cancels back to asking with the question kept. Closing
+/// A fold reveal is only armed once the phone has been fully closed, so a
+/// wobble at the open end of the hinge (open -> partly open -> open) never
+/// reveals. Closing mid way cancels back to asking with the question kept. Closing
 /// after a reveal clears the question, ready for the next one. Tap to reveal
 /// works in every mode, so it is the fallback on iPhones without a hinge and
 /// an accessible alternative on iPhone Duo.
@@ -57,6 +59,9 @@ public struct RevealMachine {
     public private(set) var phase: RevealPhase = .asking(question: "")
     public private(set) var posture: FoldPosture
     public private(set) var hint: RevealHint = .none
+    /// True once the phone has been fully closed since the last fold attempt.
+    /// Only an armed opening can start a fold reveal.
+    public private(set) var foldArmed: Bool
     public var answers: [Answer]
     private var picker: AnswerPicker
 
@@ -67,6 +72,7 @@ public struct RevealMachine {
     ) {
         self.answers = answers
         self.posture = posture
+        self.foldArmed = posture == .closed
         self.picker = AnswerPicker(generator: generator)
     }
 
@@ -95,11 +101,18 @@ public struct RevealMachine {
         case .askAgain:
             phase = .asking(question: "")
             hint = .none
+            // Asking again while open still needs a close before a fold reveal.
+            foldArmed = posture == .closed
 
         case .postureChanged(let next):
             let previous = posture
             posture = next
             apply(posture: next, previous: previous)
+            switch next {
+            case .closed: foldArmed = true
+            case .unavailable: foldArmed = false
+            default: break
+            }
         }
     }
 
@@ -110,16 +123,19 @@ public struct RevealMachine {
             if case .opening(let q, _) = phase { phase = .asking(question: q) }
 
         case (.asking(let q), .partiallyOpen):
-            // Only an opening gesture that starts from closed counts.
-            guard previous == .closed else { return }
+            // Only an opening gesture that starts from fully closed counts.
+            guard foldArmed else { return }
             if canReveal {
                 phase = .opening(question: q, progress: next.openFraction())
             } else {
+                // Ask first, then close and open again.
+                foldArmed = false
                 hint = .askFirst
             }
 
         case (.asking, .open):
-            guard previous == .closed || isPartial(previous) else { return }
+            guard foldArmed else { return }
+            foldArmed = false
             if canReveal { reveal() } else { hint = .askFirst }
 
         case (.opening(let q, _), .partiallyOpen):
@@ -140,11 +156,6 @@ public struct RevealMachine {
         }
     }
 
-    private func isPartial(_ posture: FoldPosture) -> Bool {
-        if case .partiallyOpen = posture { return true }
-        return false
-    }
-
     private mutating func reveal() {
         let question = Self.clean(phase.question)
         guard !question.isEmpty else {
@@ -155,6 +166,7 @@ public struct RevealMachine {
             guard let answer = picker.pick(from: answers) else { return }
             phase = .revealed(question: question, answer: answer)
             hint = .none
+            foldArmed = false
             return
         }
     }
