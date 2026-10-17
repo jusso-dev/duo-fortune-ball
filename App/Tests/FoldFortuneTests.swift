@@ -13,6 +13,34 @@ final class FoldFortuneTests: XCTestCase {
         XCTAssertNotNil(model.phase.answer)
     }
 
+    /// Drives the real path: the mock publishes postures and
+    /// `observeFold` feeds them to the machine.
+    func testObserveFoldRevealsWhenMockOpens() async throws {
+        let mock = MockFoldStateService(initial: .closed)
+        let model = FortuneModel(foldService: mock, store: InMemoryAnswerSetStore())
+        model.send(.questionChanged("Will it be sunny?"))
+        let observer = Task { await model.observeFold() }
+        defer { observer.cancel() }
+
+        for _ in 0..<200 where mock.subscriberCount == 0 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(mock.subscriberCount, 1, "observeFold never subscribed")
+
+        mock.play(MockFoldStateService.openingScript)
+        for _ in 0..<200 where model.phase.answer == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertNotNil(model.phase.answer)
+        XCTAssertEqual(model.revealAnnouncement, model.phase.answer.map { "Answer: \($0.text)" })
+    }
+
+    func testNoAnnouncementBeforeReveal() {
+        let model = FortuneModel(foldService: MockFoldStateService(initial: .closed), store: InMemoryAnswerSetStore())
+        model.send(.questionChanged("Soon?"))
+        XCTAssertNil(model.revealAnnouncement)
+    }
+
     func testModelUsesTapWithoutHinge() {
         let model = FortuneModel(foldService: UnavailableFoldStateService(), store: InMemoryAnswerSetStore())
         XCTAssertEqual(model.mode, .tap)

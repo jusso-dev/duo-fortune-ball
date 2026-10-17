@@ -16,7 +16,7 @@ struct RevealView: View {
                 .frame(maxWidth: 420)
                 .animation(.spring(duration: 0.6, bounce: 0.25), value: openFraction)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(model.phase.answer.map { "Answer: \($0.text)" } ?? "Opening")
+                .accessibilityLabel(model.revealAnnouncement ?? "Opening")
 
             if model.phase.answer != nil {
                 Text(model.mode == .fold ? "Close your phone to ask again." : "")
