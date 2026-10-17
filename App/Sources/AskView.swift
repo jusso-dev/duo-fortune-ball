@@ -10,7 +10,7 @@ struct AskView: View {
         // Usually the outer display, where there is no fold. If the phone
         // is partly open while asking, the pod and the controls go either
         // side of the fold.
-        FoldAwareLayout(spacing: 20) {
+        FoldAwareLayout {
             PodView(openFraction: 0, answer: nil)
                 .frame(maxWidth: 180, maxHeight: 180)
         } secondary: {

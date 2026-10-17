@@ -37,6 +37,7 @@ struct RootView: View {
                 ToolbarItem(placement: .topBarPinnedTrailing) {
                     Button("Answers", systemImage: "slider.horizontal.3") { editing = true }
                         .tint(Palette.wattle)
+                        .accessibilityHint("Edit the answers and turn sounds on or off")
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)

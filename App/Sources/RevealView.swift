@@ -11,7 +11,7 @@ struct RevealView: View {
     var body: some View {
         // Partly open, the question and pod sit on one side of the fold and
         // the buttons on the other, so nothing lands in the crease.
-        FoldAwareLayout(spacing: 24) {
+        FoldAwareLayout {
             VStack(spacing: 24) {
                 Text(model.phase.question)
                     .font(.title3)

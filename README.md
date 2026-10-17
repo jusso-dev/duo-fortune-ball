@@ -30,13 +30,14 @@ There is no dedicated "outer display" API. Apple's guidance is that the outer di
 
 ### Layout and the fold
 
-Both screens go through `FoldAwareLayout`. On a flat screen it stacks the pod above the controls, or puts them side by side when height is compact. When the fold divides the view (iPhone Duo partly open), `reservedRegions(kind: .division)` reports an active region, and the layout switches to an `ArrangementView` with the split style. The pod then sits on one side of the fold and the question field or buttons on the other, so nothing interactive sits in the crease. Other parts follow the Human Interface Guidelines and Apple's iPhone Duo guidance:
+Both screens go through `FoldAwareLayout`, an `ArrangementView` with the split style, as Apple's iPhone Duo guidance recommends. It stacks the pod above the controls on a tall screen, and puts them side by side on a wide one. When the fold divides the view (iPhone Duo partly open), it places the pod on one side of the fold and the question field or buttons on the other, so nothing interactive sits in the crease. It stays the same view through every pose, so folding and opening animate instead of rebuilding the screen. Other parts follow the Human Interface Guidelines and Apple's iPhone Duo guidance:
 
 - Content stays inside the safe area. Only the background colour extends under the status bar and camera.
 - The Answers and Done buttons are toolbar items with an icon and a title, so iPhone Duo can show them in its vertical bar.
 - The palette is dark, so the app keeps a dark appearance and the status bar stays legible.
 - The pod shells stay inside their frame and the answer card draws above them, so long answers are never covered.
 - Every screen scrolls instead of clipping at large Dynamic Type sizes.
+- Text and controls in the answers sheet keep at least 4.5:1 contrast in the dark appearance.
 
 The app target adapts `onHingeChange` into a small `FoldStateService` protocol in the `FortuneCore` package. That keeps the logic testable on Linux with a scriptable mock, and gives a clean fallback (`.unavailable`) on iPhones without a hinge, where the app uses tap to reveal.
 
