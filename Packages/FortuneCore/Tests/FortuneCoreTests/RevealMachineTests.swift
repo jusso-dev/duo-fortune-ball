@@ -184,4 +184,53 @@ final class RevealMachineTests: XCTestCase {
         }
         XCTAssertEqual(run(), run())
     }
+
+    // Regression: SE3 review High. A wobble at the open end of the hinge
+    // (open -> partly open -> open) must not reveal without a full close.
+    func testWobbleAtOpenEndDoesNotReveal() {
+        var m = RevealMachine(answers: answers, posture: .open, generator: SeededGenerator(seed: 4))
+        m.handle(.questionChanged("Wobble?"))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 175)))
+        m.handle(.postureChanged(.open))
+        XCTAssertNil(m.phase.answer)
+        XCTAssertEqual(m.phase, .asking(question: "Wobble?"))
+    }
+
+    func testWobbleAfterAskAgainWhileOpenDoesNotReveal() {
+        var m = makeFold()
+        m.handle(.questionChanged("First?"))
+        m.handle(.postureChanged(.open))
+        XCTAssertNotNil(m.phase.answer)
+        m.handle(.askAgain)
+        m.handle(.questionChanged("Second?"))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 170)))
+        m.handle(.postureChanged(.open))
+        XCTAssertNil(m.phase.answer)
+        // A full close then open reveals as normal.
+        m.handle(.postureChanged(.closed))
+        m.handle(.postureChanged(.open))
+        XCTAssertNotNil(m.phase.answer)
+    }
+
+    func testHintedOpeningNeedsACloseBeforeRevealing() {
+        var m = makeFold()
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 40)))
+        XCTAssertEqual(m.hint, .askFirst)
+        m.handle(.questionChanged("Typed while half open?"))
+        m.handle(.postureChanged(.open))
+        XCTAssertNil(m.phase.answer, "must close before a fold reveal")
+        m.handle(.postureChanged(.closed))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 90)))
+        m.handle(.postureChanged(.open))
+        XCTAssertNotNil(m.phase.answer)
+    }
+
+    func testRegainingHingeWhileOpenIsNotArmed() {
+        var m = makeFold()
+        m.handle(.questionChanged("Q?"))
+        m.handle(.postureChanged(.unavailable))
+        m.handle(.postureChanged(.partiallyOpen(angleDegrees: 120)))
+        m.handle(.postureChanged(.open))
+        XCTAssertNil(m.phase.answer)
+    }
 }
