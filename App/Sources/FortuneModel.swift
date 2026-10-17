@@ -2,16 +2,22 @@ import Foundation
 import Observation
 import FortuneCore
 
-/// Owns the reveal state machine and feeds it fold postures.
+/// Owns the reveal state machine, the answer set and fold observation.
 @MainActor
 @Observable
 final class FortuneModel {
     private(set) var machine: RevealMachine
+    private(set) var answerSet: AnswerSet
+    var lastError: AnswerSetError?
     let foldService: any FoldStateService
+    private let store: any AnswerSetStore
 
-    init(foldService: any FoldStateService, answers: [Answer]) {
+    init(foldService: any FoldStateService, store: any AnswerSetStore) {
+        let set = store.loadOrOriginal()
         self.foldService = foldService
-        self.machine = RevealMachine(answers: answers, posture: foldService.current)
+        self.store = store
+        self.answerSet = set
+        self.machine = RevealMachine(answers: set.answers, posture: foldService.current)
     }
 
     var phase: RevealPhase { machine.phase }
@@ -21,6 +27,22 @@ final class FortuneModel {
 
     func send(_ event: RevealEvent) {
         machine.handle(event)
+    }
+
+    /// Apply an edit to the answer set, persist it and refresh the machine.
+    func editAnswers(_ edit: (inout AnswerSet) throws -> Void) {
+        var copy = answerSet
+        do {
+            try edit(&copy)
+            try? store.save(copy)
+            answerSet = copy
+            machine.answers = copy.answers
+            lastError = nil
+        } catch let error as AnswerSetError {
+            lastError = error
+        } catch {
+            lastError = nil
+        }
     }
 
     /// Run for the lifetime of the view to keep posture in sync.
