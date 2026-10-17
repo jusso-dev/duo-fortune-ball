@@ -6,11 +6,15 @@ struct RootView: View {
     @State private var model: FortuneModel
     @State private var editing = false
 
-    init() {
+    init(options: LaunchOptions = LaunchOptions()) {
         let hinge = HingeFoldStateService()
-        let store: any AnswerSetStore = (try? FileAnswerSetStore.applicationSupport()) ?? InMemoryAnswerSetStore()
         _hinge = State(initialValue: hinge)
-        _model = State(initialValue: FortuneModel(foldService: hinge, store: store))
+        if let fold = options.mockFold {
+            _model = State(initialValue: .mocked(fold, question: options.mockQuestion))
+        } else {
+            let store: any AnswerSetStore = (try? FileAnswerSetStore.applicationSupport()) ?? InMemoryAnswerSetStore()
+            _model = State(initialValue: FortuneModel(foldService: hinge, store: store))
+        }
     }
 
     var body: some View {

@@ -166,6 +166,7 @@ jobs:
           esac
           xcrun simctl list devices | grep "$SIM_ID"
           echo "id=$SIM_ID" >> "$GITHUB_OUTPUT"
+          echo "runtime=$RUNTIME" >> "$GITHUB_OUTPUT"
 
       - name: xcodebuild build test
         run: |
@@ -184,4 +185,57 @@ jobs:
         with:
           name: TestResults
           path: build/TestResults.xcresult
+          if-no-files-found: ignore
+
+      # README and App Store screenshots (docs/screenshots). Uses an iPhone Duo
+      # simulator when one can be created, otherwise the newest 6.9 inch
+      # iPhone Pro Max. The fold states come from -mockFold either way.
+      - name: Capture screenshots
+        env:
+          RUNTIME: ${{ steps.sim.outputs.runtime }}
+        run: |
+          set -euo pipefail
+          SHOT_ID=""
+          for dt in $(xcrun simctl list -j devicetypes | python3 -c '
+          import json, re, sys
+          phones = [d for d in json.load(sys.stdin)["devicetypes"] if d["name"].startswith("iPhone")]
+          def model(d):
+              m = re.match(r"iPhone (\d+)", d["name"])
+              return int(m.group(1)) if m else 0
+          duo = [d for d in phones if "Duo" in d["name"]]
+          big = sorted((d for d in phones if "Pro Max" in d["name"]), key=model, reverse=True)
+          print(" ".join(d["identifier"] for d in duo + big))
+          '); do
+            if SHOT_ID=$(xcrun simctl create "Screenshots" "$dt" "$RUNTIME" 2>shot.err); then
+              echo "::notice::Screenshots captured on $dt ($RUNTIME)."
+              break
+            fi
+            echo "Could not create $dt: $(cat shot.err)"; SHOT_ID=""
+          done
+          [ -n "$SHOT_ID" ] || { echo "::error::Could not create a simulator for screenshots on $RUNTIME."; exit 1; }
+          xcrun simctl bootstatus "$SHOT_ID" -b
+          xcrun simctl status_bar "$SHOT_ID" override --time 9:41 \
+            --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 \
+            --batteryState charged --batteryLevel 100
+          mkdir -p build/screenshots
+          TEST_RUNNER_SCREENSHOT_DIR="$PWD/build/screenshots" xcodebuild \
+            -project FoldFortune.xcodeproj \
+            -scheme FoldFortuneScreenshots \
+            -destination "id=$SHOT_ID" \
+            -resultBundlePath build/Screenshots.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+          for f in build/screenshots/*.png; do
+            echo "$f $(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixel/ {printf "%s ", $2}')"
+          done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Screenshots
+          path: |
+            build/screenshots
+            build/Screenshots.xcresult
           if-no-files-found: ignore
