@@ -38,7 +38,7 @@ App/Sources                  SwiftUI app target
 App/Resources                Asset catalogue
 App/Tests                    App unit tests (need a Mac)
 Packages/FortuneCore         Pure Swift logic package, no SwiftUI or UIKit, builds on Linux
-.github/workflows/ios.yml    CI: FortuneCore tests, then app build and tests on the hosted xcode-27 image
+.github/workflows/ios.yml    CI: FortuneCore tests on Linux, plus FortuneCore tests, app build and app tests on the hosted xcode-27 image
 ```
 
 ## Not wired up yet
