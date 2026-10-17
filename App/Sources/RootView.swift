@@ -41,6 +41,7 @@ struct RootView: View {
         }
         .feedingHinge(into: hinge)
         .task { await model.observeFold() }
+        .task { if soundEnabled { sounds.preload(FeedbackCue.allSounds) } }
         .onChange(of: model.phase.answer) { _, answer in
             // The reveal can happen with the phone opening and no tap, so
             // tell VoiceOver users the answer straight away.

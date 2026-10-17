@@ -21,6 +21,9 @@ enum FeedbackCue: Equatable {
     }
 
     /// The sound file in the app bundle, or nil for a silent cue.
+    /// Every sound a cue can play.
+    static let allSounds = ["pod-creak", "chime-yes", "chime-no", "chime-maybe"]
+
     var sound: String? {
         switch self {
         case .opening: "pod-creak"
@@ -53,10 +56,13 @@ enum Haptic: Equatable {
 /// Turns reveal phase changes into feedback cues.
 ///
 /// While opening, ticks are throttled to one per `tickStepDegrees` of hinge
-/// travel. Tap mode never opens, so it only gets the reveal cue.
+/// travel. The opening cue (with its creak) plays once per reveal, so a
+/// hinge that wobbles back to asking and opens again only ticks. Tap mode
+/// never opens, so it only gets the reveal cue.
 struct FeedbackPlanner {
     static let tickStepDegrees = 15.0
     private var lastTickDegrees: Double?
+    private var openingCued = false
 
     mutating func cue(from old: RevealPhase, to new: RevealPhase, mode: RevealMode) -> FeedbackCue? {
         switch new {
@@ -68,6 +74,8 @@ struct FeedbackPlanner {
             let degrees = progress * 180
             guard let last = lastTickDegrees else {
                 lastTickDegrees = degrees
+                if openingCued { return .tick }
+                openingCued = true
                 return .opening
             }
             guard abs(degrees - last) >= Self.tickStepDegrees else { return nil }
@@ -75,6 +83,7 @@ struct FeedbackPlanner {
             return .tick
         case .revealed(_, let answer):
             lastTickDegrees = nil
+            openingCued = false
             if old.answer?.id == answer.id { return nil }
             return .reveal(answer.tone)
         }
@@ -105,14 +114,24 @@ final class SoundPlayer {
     private var players: [String: AVAudioPlayer] = [:]
     private var sessionConfigured = false
 
+    /// Sets up the audio session and loads the given sounds, so the first
+    /// cue plays on time.
+    func preload(_ names: [String]) {
+        configureSession()
+        for name in names { _ = player(named: name) }
+    }
+
     func play(_ name: String) {
-        if !sessionConfigured {
-            try? AVAudioSession.sharedInstance().setCategory(.ambient)
-            sessionConfigured = true
-        }
+        configureSession()
         guard let player = player(named: name) else { return }
         player.currentTime = 0
         player.play()
+    }
+
+    private func configureSession() {
+        guard !sessionConfigured else { return }
+        try? AVAudioSession.sharedInstance().setCategory(.ambient)
+        sessionConfigured = true
     }
 
     private func player(named name: String) -> AVAudioPlayer? {

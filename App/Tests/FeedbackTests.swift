@@ -52,6 +52,20 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(planner.cue(from: .asking(question: "Q?"), to: opening, mode: .fold), .opening)
     }
 
+    func testWobbleBackToAskingDoesNotReplayTheCreak() {
+        var planner = FeedbackPlanner()
+        let asking = RevealPhase.asking(question: "Q?")
+        let opening = RevealPhase.opening(question: "Q?", progress: 0.2)
+        XCTAssertEqual(planner.cue(from: asking, to: opening, mode: .fold), .opening)
+        XCTAssertNil(planner.cue(from: opening, to: asking, mode: .fold))
+        XCTAssertEqual(planner.cue(from: asking, to: opening, mode: .fold), .tick)
+    }
+
+    func testAllSoundsListsEveryCueSound() {
+        let cues: [FeedbackCue] = [.opening, .tick] + AnswerTone.allCases.map { .reveal($0) }
+        XCTAssertEqual(Set(cues.compactMap(\.sound)), Set(FeedbackCue.allSounds))
+    }
+
     func testTapModeOnlyGetsTheReveal() {
         var planner = FeedbackPlanner()
         XCTAssertNil(planner.cue(from: .asking(question: ""), to: .asking(question: "Q?"), mode: .tap))
