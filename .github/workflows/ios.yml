@@ -223,11 +223,11 @@ jobs:
           big = sorted((d for d in phones if "Pro Max" in d["name"]), key=model, reverse=True)
           print(" ".join(d["identifier"] for d in duo + big))
           '); do
-            if SHOT_ID=$(xcrun simctl create "Screenshots" "$dt" "$RUNTIME" 2>shot.err); then
+            if SHOT_ID=$(xcrun simctl create "Screenshots" "$dt" "$RUNTIME" 2>"$RUNNER_TEMP/shot.err"); then
               echo "::notice::Screenshots captured on $dt ($RUNTIME)."
               break
             fi
-            echo "Could not create $dt: $(cat shot.err)"; SHOT_ID=""
+            echo "Could not create $dt: $(cat "$RUNNER_TEMP/shot.err")"; SHOT_ID=""
           done
           [ -n "$SHOT_ID" ] || { echo "::error::Could not create a simulator for screenshots on $RUNTIME."; exit 1; }
           xcrun simctl bootstatus "$SHOT_ID" -b
@@ -243,9 +243,12 @@ jobs:
             -resultBundlePath build/Screenshots.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             test
-          for f in build/screenshots/*.png; do
+          shopt -s nullglob
+          shots=(build/screenshots/*.png)
+          for f in "${shots[@]}"; do
             echo "$f $(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixel/ {printf "%s ", $2}')"
           done
+          [ "${#shots[@]}" -eq 4 ] || { echo "::error::Expected 4 screenshots, found ${#shots[@]}."; exit 1; }
 
       - name: Upload screenshots
         if: always()

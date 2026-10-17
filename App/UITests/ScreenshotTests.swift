@@ -23,7 +23,9 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func testDuoHalfOpen() throws {
         let app = launch(fold: "half")
-        XCTAssertTrue(element(app, label: "Opening").waitForExistence(timeout: 10))
+        // Only the opening screen shows the question as text. The ask
+        // screen has it inside the text field.
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", Self.question)).firstMatch.waitForExistence(timeout: 10))
         try save("duo-half-open")
     }
 
