@@ -86,7 +86,7 @@ extension AnswerSet {
         Answer(text: "Have a crack, it will work out.", tone: .yes),
         Answer(text: "Everything lines up for this one.", tone: .yes),
         Answer(text: "Sleep on it and look again.", tone: .maybe),
-        Answer(text: "Half open, half shut. Try once more.", tone: .maybe),
+        Answer(text: "Half open, half shut. Could go either way.", tone: .maybe),
         Answer(text: "Ask a mate first.", tone: .maybe),
         Answer(text: "Still unfolding. Give it a day.", tone: .maybe),
         Answer(text: "Flip a coin, then notice how you feel.", tone: .maybe),
@@ -96,7 +96,7 @@ extension AnswerSet {
         Answer(text: "The pod stays shut on that.", tone: .no),
         Answer(text: "Save your energy for something better.", tone: .no),
         Answer(text: "Only if there are snacks.", tone: .playful),
-        Answer(text: "Ask me again after a cuppa.", tone: .playful),
+        Answer(text: "Put the kettle on first.", tone: .playful),
         Answer(text: "The wattle is nodding. Make of that what you will.", tone: .playful)
     ])
 }

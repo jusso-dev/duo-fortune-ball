@@ -23,7 +23,9 @@ final class AnswerSetTests: XCTestCase {
                       "my sources say", "very doubtful", "without a doubt", "ask again later",
                       "cannot predict now", "concentrate and ask again", "it is decidedly so",
                       "you may rely on it", "as i see it", "better not tell you now", "don't count on it",
-                      "8 ball", "eight ball"]
+                      "8 ball", "eight ball",
+                      // Near paraphrases of the stock "ask again" and "try again" lines.
+                      "ask again", "ask me again", "try again", "try once more"]
         for answer in AnswerSet.original.answers {
             let text = answer.text.lowercased()
             for phrase in banned { XCTAssertFalse(text.contains(phrase), "\(answer.text) contains \(phrase)") }
