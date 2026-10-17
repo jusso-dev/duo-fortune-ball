@@ -7,6 +7,7 @@ struct AnswerEditorView: View {
     @State private var newText = ""
     @State private var newTone: AnswerTone = .yes
     @State private var confirmingReset = false
+    @AppStorage(FeedbackSettings.soundKey) private var soundEnabled = true
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -46,6 +47,14 @@ struct AnswerEditorView: View {
                     .onMove { source, destination in
                         model.editAnswers { $0.move(fromOffsets: source, toOffset: destination) }
                     }
+                }
+                Section {
+                    Toggle("Sounds", isOn: $soundEnabled)
+                        .tint(Palette.eucalyptus)
+                } header: {
+                    Text("Feedback")
+                } footer: {
+                    Text("Sounds follow the silent switch.")
                 }
                 Section {
                     Button("Reset to original answers", role: .destructive) {
