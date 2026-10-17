@@ -19,7 +19,9 @@ targets:
     platform: iOS
     sources:
       - App/Sources
-      - App/Resources
+      - path: App/Resources
+        excludes:
+          - "**/*.md"
     dependencies:
       - package: FortuneCore
     settings:
