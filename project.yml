@@ -54,4 +54,4 @@ schemes:
     test:
       targets:
         - FoldFortuneTests
-        - package: FortuneCore/FortuneCoreTests
+        # FortuneCoreTests run once, in CI's `swift test` step, not again here.
