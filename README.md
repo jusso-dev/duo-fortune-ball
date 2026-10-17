@@ -36,7 +36,7 @@ Both screens go through `FoldAwareLayout`, an `ArrangementView` with the split s
 - The Answers and Done buttons are toolbar items with an icon and a title, so iPhone Duo can show them in its vertical bar.
 - The palette is dark, so the app keeps a dark appearance and the status bar stays legible.
 - The pod shells stay inside their frame and the answer card draws above them, so long answers are never covered.
-- Every screen scrolls instead of clipping at large Dynamic Type sizes.
+- The question, prompts and buttons scroll instead of clipping at large Dynamic Type sizes. The pod shrinks to the space it has.
 - Text and controls in the answers sheet keep at least 4.5:1 contrast in the dark appearance.
 
 The app target adapts `onHingeChange` into a small `FoldStateService` protocol in the `FortuneCore` package. That keeps the logic testable on Linux with a scriptable mock, and gives a clean fallback (`.unavailable`) on iPhones without a hinge, where the app uses tap to reveal.
@@ -64,6 +64,10 @@ Packages/FortuneCore         Pure Swift logic package, no SwiftUI or UIKit, buil
 After a reveal, Share opens the system share sheet with a 1080 by 1350 image of the question, the open pod and the answer (`ShareCardView`). Apps that only take text get the plain text from `FortuneCore.ShareCard` instead. Questions over 100 characters are shortened on a word boundary. Nothing leaves the phone except through the share sheet.
 
 ## Screenshots
+
+| Closed, asking | Partly open | Open, revealed | iPhone, tap to reveal |
+| --- | --- | --- | --- |
+| ![Asking on the outer display](docs/screenshots/duo-outer-ask.png) | ![The pod opening](docs/screenshots/duo-half-open.png) | ![The answer revealed](docs/screenshots/duo-inner-reveal.png) | ![Revealed by tapping](docs/screenshots/iphone-tap-reveal.png) |
 
 `FoldFortuneUITests/ScreenshotTests` captures four screenshots for the README and App Store. Each launches the app in a fixed state with `-mockFold closed|half|open|tap` and `-mockQuestion "..."`, using the original answers in memory and a seeded answer, so the images are the same on every run:
 
