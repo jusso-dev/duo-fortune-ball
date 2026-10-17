@@ -12,6 +12,7 @@ struct AskView: View {
         ViewThatFits(in: .vertical) {
             content
             ScrollView { content }
+                .scrollDismissesKeyboard(.interactively)
         }
     }
 
@@ -42,7 +43,8 @@ struct AskView: View {
             if model.hint == .askFirst {
                 Text("Ask your question first.")
                     .font(.footnote)
-                    .foregroundStyle(Palette.ochre)
+                    // Wattle on eucalyptusDeep is about 4.8:1. Ochre was 2.1:1.
+                    .foregroundStyle(Palette.wattle)
             }
 
             Text(model.promptText)
@@ -56,6 +58,8 @@ struct AskView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Palette.wattle)
+            // A dark label on wattle is about 11:1. The default white was 1.9:1.
+            .foregroundStyle(Palette.eucalyptusDeep)
             .disabled(!model.canReveal)
             .accessibilityHint("Shows the answer without opening the phone")
         }
