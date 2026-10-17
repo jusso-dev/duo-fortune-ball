@@ -28,6 +28,9 @@ final class FortuneModel {
     var hint: RevealHint { machine.hint }
     var canReveal: Bool { machine.canReveal }
 
+    /// What VoiceOver reads for the revealed answer, or nil before a reveal.
+    var revealAnnouncement: String? { phase.answer.map { "Answer: \($0.text)" } }
+
     func send(_ event: RevealEvent) {
         machine.handle(event)
     }
