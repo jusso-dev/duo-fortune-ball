@@ -41,9 +41,9 @@ Packages/FortuneCore         Pure Swift logic package, no SwiftUI or UIKit, buil
 .github/workflows/ios.yml    CI: FortuneCore tests on Linux, plus FortuneCore tests, app build and app tests on the hosted xcode-27 image
 ```
 
-## Not wired up yet
+## Sharing
 
-`FortuneCore.ShareCard` (the share text and card model) is built and tested but not used by the app yet. There is no share button until a follow-up adds `ShareLink`.
+After a reveal, Share opens the system share sheet with a 1080 by 1350 image of the question, the open pod and the answer (`ShareCardView`). Apps that only take text get the plain text from `FortuneCore.ShareCard` instead. Questions over 100 characters are shortened on a word boundary. Nothing leaves the phone except through the share sheet.
 
 ## Build
 
