@@ -20,10 +20,10 @@ enum FeedbackCue: Equatable {
         }
     }
 
-    /// The sound file in the app bundle, or nil for a silent cue.
     /// Every sound a cue can play.
     static let allSounds = ["pod-creak", "chime-yes", "chime-no", "chime-maybe"]
 
+    /// The sound file in the app bundle, or nil for a silent cue.
     var sound: String? {
         switch self {
         case .opening: "pod-creak"
