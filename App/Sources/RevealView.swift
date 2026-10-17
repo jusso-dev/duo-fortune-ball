@@ -9,9 +9,16 @@ struct RevealView: View {
     @State private var shared: (item: SharedFortune, preview: Image)?
 
     var body: some View {
-        ViewThatFits(in: .vertical) {
-            content
-            ScrollView { content }
+        // Partly open, the pod sits on one side of the fold and the question
+        // and buttons on the other, so nothing lands in the crease.
+        FoldAwareLayout {
+            PodView(openFraction: openFraction, answer: model.phase.answer)
+                .frame(maxWidth: 420)
+                .animation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.25), value: openFraction)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(model.revealAnnouncement ?? "Opening")
+        } secondary: {
+            actions
         }
         .task(id: ShareCard(phase: model.phase)) {
             shared = nil
@@ -26,18 +33,12 @@ struct RevealView: View {
         }
     }
 
-    private var content: some View {
+    private var actions: some View {
         VStack(spacing: 24) {
             Text(model.phase.question)
                 .font(.title3)
                 .foregroundStyle(Palette.cream)
                 .multilineTextAlignment(.center)
-
-            PodView(openFraction: openFraction, answer: model.phase.answer)
-                .frame(maxWidth: 420)
-                .animation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.25), value: openFraction)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(model.revealAnnouncement ?? "Opening")
 
             if model.phase.answer == nil {
                 // Opening: the hinge may rest short of fully open, so always
@@ -59,7 +60,6 @@ struct RevealView: View {
                 }
             }
         }
-        .padding(24)
     }
 
     @ViewBuilder

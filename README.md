@@ -28,11 +28,22 @@ Background: [Preparing your app for iPhone Duo](https://developer.apple.com/docu
 
 There is no dedicated "outer display" API. Apple's guidance is that the outer display behaves like a normal compact width iPhone, so the app treats hinge status `.closed` as "asking on the outer display" and uses size classes for layout. Apple advises using hinge data for live interactions and effects and the arrangement and reserved region APIs for layout, which is what this app does.
 
+### Layout and the fold
+
+Both screens go through `FoldAwareLayout`, an `ArrangementView` with the split style, as Apple's iPhone Duo guidance recommends. It stacks the pod above the controls on a tall screen, and puts them side by side on a wide one. When the fold divides the view (iPhone Duo partly open), it places the pod on one side of the fold and the question field or buttons on the other, so nothing interactive sits in the crease. It stays the same view through every pose, so folding and opening animate instead of rebuilding the screen. Other parts follow the Human Interface Guidelines and Apple's iPhone Duo guidance:
+
+- Content stays inside the safe area. Only the background colour extends under the status bar and camera.
+- The Answers and Done buttons are toolbar items with an icon and a title, so iPhone Duo can show them in its vertical bar.
+- The palette is dark, so the app keeps a dark appearance and the status bar stays legible.
+- The pod shells stay inside their frame and the answer card draws above them, so long answers are never covered.
+- The question, prompts and buttons scroll instead of clipping at large Dynamic Type sizes. The pod shrinks to the space it has.
+- Text and controls in the answers sheet keep at least 4.5:1 contrast in the dark appearance.
+
 The app target adapts `onHingeChange` into a small `FoldStateService` protocol in the `FortuneCore` package. That keeps the logic testable on Linux with a scriptable mock, and gives a clean fallback (`.unavailable`) on iPhones without a hinge, where the app uses tap to reveal.
 
 ## Haptics and sound
 
-On iPhone Duo, opening the phone gives a light haptic tick for every 15 degrees of hinge travel and a short pod creak as it starts to open. The reveal has its own haptic and chime for each tone: success for yes, warning for no, and a soft tap for maybe and playful. In tap mode only the reveal gives feedback.
+On iPhone Duo, opening the phone gives a light haptic tick for every 15 degrees of hinge travel and a short pod creak as it starts to open. The reveal has its own impact haptic and chime for each tone: firm for yes, heavy for no, and soft for maybe and playful. Success and warning haptics are left to their system meanings, as the Human Interface Guidelines ask. In tap mode only the reveal gives feedback.
 
 Sounds use an ambient audio session, so the silent switch mutes them, and they can be turned off in the answers sheet. All sounds are synthesised by `scripts/make_sounds.py` (see `App/Resources/Sounds/CREDITS.md`).
 
@@ -53,6 +64,10 @@ Packages/FortuneCore         Pure Swift logic package, no SwiftUI or UIKit, buil
 After a reveal, Share opens the system share sheet with a 1080 by 1350 image of the question, the open pod and the answer (`ShareCardView`). Apps that only take text get the plain text from `FortuneCore.ShareCard` instead. Questions over 100 characters are shortened on a word boundary. Nothing leaves the phone except through the share sheet.
 
 ## Screenshots
+
+| Closed, asking | Partly open | Open, revealed | iPhone, tap to reveal |
+| --- | --- | --- | --- |
+| ![Asking on the outer display](docs/screenshots/duo-outer-ask.png) | ![The pod opening](docs/screenshots/duo-half-open.png) | ![The answer revealed](docs/screenshots/duo-inner-reveal.png) | ![Revealed by tapping](docs/screenshots/iphone-tap-reveal.png) |
 
 `FoldFortuneUITests/ScreenshotTests` captures four screenshots for the README and App Store. Each launches the app in a fixed state with `-mockFold closed|half|open|tap` and `-mockQuestion "..."`, using the original answers in memory and a seeded answer, so the images are the same on every run:
 

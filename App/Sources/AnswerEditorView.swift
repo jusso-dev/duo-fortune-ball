@@ -7,6 +7,7 @@ struct AnswerEditorView: View {
     @State private var newText = ""
     @State private var newTone: AnswerTone = .yes
     @State private var confirmingReset = false
+    @State private var editMode: EditMode = .inactive
     @AppStorage(FeedbackSettings.soundKey) private var soundEnabled = true
     @Environment(\.dismiss) private var dismiss
 
@@ -24,12 +25,13 @@ struct AnswerEditorView: View {
                     }
                     .disabled(newText.trimmingCharacters(in: .whitespaces).isEmpty)
                     if let error = model.lastError {
-                        Text(error.message).font(.footnote).foregroundStyle(Palette.ochre)
+                        // Wattle on the dark list cells is about 9:1. Ochre was 3.5:1.
+                        Text(error.message).font(.footnote).foregroundStyle(Palette.wattle)
                     }
                     if model.saveFailed {
                         Text("Couldn't save your answers. Your changes will be lost when the app closes.")
                             .font(.footnote)
-                            .foregroundStyle(Palette.ochre)
+                            .foregroundStyle(Palette.wattle)
                     }
                 }
                 Section("Answers") {
@@ -50,7 +52,7 @@ struct AnswerEditorView: View {
                 }
                 Section {
                     Toggle("Sounds", isOn: $soundEnabled)
-                        .tint(Palette.eucalyptus)
+                        .tint(Palette.wattle)
                 } header: {
                     Text("Feedback")
                 } footer: {
@@ -74,10 +76,24 @@ struct AnswerEditorView: View {
                     }
                 }
             }
+            .environment(\.editMode, $editMode)
             .navigationTitle("Answers")
             .toolbar {
-                EditButton()
-                Button("Done") { dismiss() }
+                // EditButton has a title but no icon, so iPhone Duo can't show
+                // it in a vertical bar. This toggle has both.
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(
+                        editMode.isEditing ? "Stop Editing" : "Edit",
+                        systemImage: editMode.isEditing ? "pencil.slash" : "pencil"
+                    ) {
+                        withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+                    }
+                }
+                // Icon and title, so Done stays visible in iPhone Duo's
+                // vertical bar on the outer display.
+                ToolbarItem(placement: .topBarPinnedTrailing) {
+                    Button("Done", systemImage: "checkmark") { dismiss() }
+                }
             }
         }
     }

@@ -22,8 +22,9 @@ struct RootView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Palette.eucalyptusDeep.ignoresSafeArea()
+        // A navigation stack gives the answers button a real toolbar, which
+        // iPhone Duo can show as a vertical bar beside the content.
+        NavigationStack {
             Group {
                 switch model.phase {
                 case .asking:
@@ -33,16 +34,21 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Button {
-                editing = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundStyle(Palette.wattle)
-                    .padding()
+            .background { Palette.eucalyptusDeep.ignoresSafeArea() }
+            .toolbar {
+                // An icon and a title, so the item can show in a vertical
+                // bar (icon), a horizontal bar, or the overflow menu.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Answers", systemImage: "slider.horizontal.3") { editing = true }
+                        .tint(Palette.wattle)
+                        .accessibilityHint("Edit the answers and turn sounds on or off")
+                }
             }
-            .accessibilityLabel("Answers and settings")
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
+        // The palette is dark, so keep the status bar and system controls
+        // light on it whatever the system appearance.
+        .preferredColorScheme(.dark)
         .feedingHinge(into: hinge)
         .task { await model.observeFold() }
         .task { if soundEnabled { sounds.preload(FeedbackCue.allSounds) } }

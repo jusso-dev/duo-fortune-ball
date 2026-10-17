@@ -8,8 +8,8 @@ final class FeedbackTests: XCTestCase {
     }
 
     func testRevealHapticAndSoundFollowTone() {
-        XCTAssertEqual(FeedbackCue.reveal(.yes).haptic, .success)
-        XCTAssertEqual(FeedbackCue.reveal(.no).haptic, .warning)
+        XCTAssertEqual(FeedbackCue.reveal(.yes).haptic, .firmImpact)
+        XCTAssertEqual(FeedbackCue.reveal(.no).haptic, .heavyImpact)
         XCTAssertEqual(FeedbackCue.reveal(.maybe).haptic, .softImpact)
         XCTAssertEqual(FeedbackCue.reveal(.playful).haptic, .softImpact)
         XCTAssertEqual(FeedbackCue.reveal(.yes).sound, "chime-yes")
