@@ -249,6 +249,10 @@ jobs:
             echo "$f $(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixel/ {printf "%s ", $2}')"
           done
           [ "${#shots[@]}" -eq 4 ] || { echo "::error::Expected 4 screenshots, found ${#shots[@]}."; exit 1; }
+          # TEMPORARY: dump PNGs to the log so they can be reviewed and committed. Remove before merge.
+          for f in "${shots[@]}"; do
+            echo "BEGIN-PNG $(basename "$f")"; base64 -i "$f" | tr -d '\n' | fold -w 16000; echo; echo "END-PNG"
+          done
 
       - name: Upload screenshots
         if: always()
