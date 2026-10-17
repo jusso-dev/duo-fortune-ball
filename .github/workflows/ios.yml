@@ -103,17 +103,29 @@ jobs:
           supported = rt.get("supportedDeviceTypes") or j("devicetypes")["devicetypes"]
           phones = [d for d in supported if d["name"].startswith("iPhone")]
           duo = [d for d in phones if "Duo" in d["name"]]
-          dt = (duo or phones or [None])[-1]
-          print(rt["identifier"], dt["identifier"] if dt else "", (dt["name"] if dt else "").replace(" ", "_"))
+          def model(d):
+              m = re.match(r"iPhone (\d+)", d["name"])
+              return (int(m.group(1)) if m else 0, "Pro" in d["name"], "Max" not in d["name"])
+          phones.sort(key=model)
+          order = duo + phones[::-1]
+          print(rt["identifier"], ",".join(d["identifier"] + "=" + d["name"].replace(" ", "_") for d in order), "")
           ')"
           if [ -z "$RUNTIME" ] || [ -z "$DEVTYPE" ]; then
             echo "::error::No iOS 27.1+ simulator runtime with an iPhone device type on this image."
             exit 1
           fi
-          SIM_ID=$(xcrun simctl create "CI ${NAME//_/ }" "$DEVTYPE" "$RUNTIME")
+          # Try an iPhone Duo first, then the newest iPhone. Some device types are
+          # listed but refuse to create on this runtime ("Incompatible device").
+          SIM_ID=""
+          for pair in ${DEVTYPE//,/ }; do
+            NAME="${pair#*=}"
+            if SIM_ID=$(xcrun simctl create "CI ${NAME//_/ }" "${pair%%=*}" "$RUNTIME" 2>sim.err); then break; fi
+            echo "Could not create ${NAME//_/ }: $(cat sim.err)"; SIM_ID=""
+          done
+          [ -n "$SIM_ID" ] || { echo "::error::Could not create any iPhone simulator on $RUNTIME."; exit 1; }
           case "$NAME" in
             *Duo*) echo "::notice::Simulator: ${NAME//_/ } on $RUNTIME (iPhone Duo device type)." ;;
-            *) echo "::notice::Simulator: ${NAME//_/ } on $RUNTIME. No iPhone Duo device type on this image, so hinge paths run the no-hinge fallback." ;;
+            *) echo "::notice::Simulator: ${NAME//_/ } on $RUNTIME. No iPhone Duo simulator could be created, so hinge paths run the no-hinge fallback." ;;
           esac
           xcrun simctl list devices | grep "$SIM_ID"
           echo "id=$SIM_ID" >> "$GITHUB_OUTPUT"
