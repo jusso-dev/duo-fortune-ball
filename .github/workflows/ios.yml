@@ -20,7 +20,7 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: List installed Xcodes and SDKs
         run: |
@@ -32,25 +32,33 @@ jobs:
           done
 
       # The app targets iOS 27.1, the first SDK with the iPhone Duo hinge APIs
-      # (DeviceHinge, onHingeChange). Pick the newest Xcode whose iOS simulator
-      # SDK is 27.1 or later. If none is installed, fail loudly rather than fake a pass.
-      - name: Select newest Xcode with the iPhone Duo SDK
+      # (DeviceHinge, onHingeChange). Prefer released Xcodes (newest first) and
+      # only fall back to betas or release candidates. Symlinks such as
+      # Xcode_27.1.app are skipped so each real app is checked once.
+      - name: Select Xcode with the iPhone Duo SDK (released first)
+        env:
+          MIN_SIM_SDK: "27.1"
         run: |
+          set -euo pipefail
           picked=""
-          for x in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V -r); do
-            sdk=$(DEVELOPER_DIR="$x/Contents/Developer" xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null || true)
-            echo "$x -> iphonesimulator SDK ${sdk:-none}"
-            if [ -n "$sdk" ] && [ "$(printf '%s\n27.1\n' "$sdk" | sort -V | head -1)" = "27.1" ]; then
+          all=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -t_ -k2 -V -r)
+          for x in $(echo "$all" | grep -viE 'beta|candidate') $(echo "$all" | grep -iE 'beta|candidate'); do
+            [ -L "$x" ] && continue
+            sdk=$(DEVELOPER_DIR="$x/Contents/Developer" xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null || echo 0)
+            echo "$x -> iphonesimulator SDK $sdk"
+            if [ "$(printf '%s\n%s\n' "$MIN_SIM_SDK" "$sdk" | sort -V | head -n1)" = "$MIN_SIM_SDK" ]; then
               picked="$x"; break
             fi
           done
           if [ -z "$picked" ]; then
-            echo "::error::No Xcode on this runner image has an iOS 27.1+ simulator SDK (needed for the iPhone Duo hinge APIs)."
+            echo "::error::No Xcode on this runner image has an iOS $MIN_SIM_SDK+ simulator SDK (needed for the iPhone Duo hinge APIs)."
             exit 1
           fi
+          case "$picked" in *[Bb]eta*|*[Cc]andidate*) echo "::warning::No released Xcode has the iOS $MIN_SIM_SDK SDK on this image, so using $picked." ;; esac
           sudo xcode-select -s "$picked/Contents/Developer"
           xcodebuild -version
           xcrun --sdk iphonesimulator --show-sdk-version
+          echo "XCODE_BUILD=$(xcodebuild -version | awk '/Build version/ {print $3}')" >> "$GITHUB_ENV"
 
       - name: FortuneCore swift test
         working-directory: Packages/FortuneCore
@@ -62,9 +70,18 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      # The image only ships the iOS 27.0 simulator runtime. If no 27.1+ runtime
-      # is installed, download the one that matches the selected Xcode.
+      # The image only ships the iOS 27.0 simulator runtime. Keep the runtime
+      # image for the selected Xcode build in the Actions cache so later runs
+      # import it instead of downloading it again.
+      - name: Restore cached iOS simulator runtime
+        id: rtcache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/sim-runtime
+          key: ios-sim-runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.XCODE_BUILD }}
+
       - name: Ensure an iOS 27.1+ simulator runtime
+        id: runtime
         run: |
           has_rt() {
             xcrun simctl list -j runtimes | python3 -c '
@@ -75,12 +92,29 @@ jobs:
           sys.exit(0 if ok else 1)
           '
           }
-          if has_rt; then echo "iOS 27.1+ runtime already installed"; else
-            echo "Downloading the iOS simulator runtime for $(xcodebuild -version | head -1)"
-            xcodebuild -downloadPlatform iOS
-            xcrun simctl list runtimes
-            has_rt || { echo "::error::Downloaded runtime is still older than iOS 27.1."; exit 1; }
+          if has_rt; then echo "iOS 27.1+ runtime already installed"; exit 0; fi
+          dmg=$(ls ~/sim-runtime/*.dmg 2>/dev/null | head -n1 || true)
+          if [ -n "$dmg" ]; then
+            echo "Importing cached runtime $dmg"
+            xcodebuild -importPlatform "$dmg" || { echo "Cached runtime failed to import, downloading instead"; rm -rf ~/sim-runtime; dmg=""; }
           fi
+          if [ -z "$dmg" ]; then
+            echo "Downloading the iOS simulator runtime for $(xcodebuild -version | head -1)"
+            mkdir -p ~/sim-runtime
+            xcodebuild -downloadPlatform iOS -exportPath ~/sim-runtime
+            dmg=$(ls ~/sim-runtime/*.dmg | head -n1)
+            xcodebuild -importPlatform "$dmg"
+            echo "downloaded=true" >> "$GITHUB_OUTPUT"
+          fi
+          xcrun simctl list runtimes
+          has_rt || { echo "::error::The iOS runtime is still older than 27.1 after import."; exit 1; }
+
+      - name: Save iOS simulator runtime to the cache
+        if: steps.runtime.outputs.downloaded == 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/sim-runtime
+          key: ios-sim-runtime-${{ runner.os }}-${{ runner.arch }}-${{ env.XCODE_BUILD }}
 
       # The image has no pre-made iOS 27.1 simulators, so create one. Use an
       # iPhone Duo device type if this Xcode ships one, otherwise the newest iPhone.
@@ -144,7 +178,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: TestResults
           path: build/TestResults.xcresult
