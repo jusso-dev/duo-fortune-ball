@@ -1,6 +1,6 @@
 # duo-fortune-ball (working display name: Fold Fortune)
 
-An original fortune toy for iPhone, designed first for iPhone Duo and fully usable on every other iPhone.
+An original fortune toy for iPhone, designed first for iPhone Duo and usable on any iPhone running iOS 27.1 or later (the deployment target, needed for the hinge APIs).
 
 Type a question on the outer display while the phone is closed. Open the phone and the answer unfolds on the inner display. On an iPhone without a hinge, tap to reveal instead.
 
@@ -38,8 +38,12 @@ App/Sources                  SwiftUI app target
 App/Resources                Asset catalogue
 App/Tests                    App unit tests (need a Mac)
 Packages/FortuneCore         Pure Swift logic package, no SwiftUI or UIKit, builds on Linux
-ci/workflows/ios.yml         Proposed CI workflow (move to .github/workflows to enable)
+.github/workflows/ios.yml    CI: FortuneCore tests, then app build and tests on the hosted xcode-27 image
 ```
+
+## Not wired up yet
+
+`FortuneCore.ShareCard` (the share text and card model) is built and tested but not used by the app yet. There is no share button until a follow-up adds `ShareLink`.
 
 ## Build
 

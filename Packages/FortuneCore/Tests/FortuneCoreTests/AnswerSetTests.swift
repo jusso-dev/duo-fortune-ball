@@ -91,6 +91,30 @@ final class AnswerSetTests: XCTestCase {
     }
 }
 
+final class AnswerSetDecodingTests: XCTestCase {
+    func testDecodingCleansInvalidAnswers() throws {
+        let shared = UUID()
+        let json = """
+        {"schemaVersion": 1, "name": "Hand edited", "answers": [
+          {"id": "\(shared.uuidString)", "text": "  Go for it.  ", "tone": "yes"},
+          {"id": "\(UUID().uuidString)", "text": "   ", "tone": "no"},
+          {"id": "\(UUID().uuidString)", "text": "\(String(repeating: "x", count: 81))", "tone": "no"},
+          {"id": "\(UUID().uuidString)", "text": "go for IT.", "tone": "maybe"},
+          {"id": "\(shared.uuidString)", "text": "Not today.", "tone": "no"}
+        ]}
+        """
+        let set = try JSONDecoder().decode(AnswerSet.self, from: Data(json.utf8))
+        XCTAssertEqual(set.answers.map(\.text), ["Go for it.", "Not today."])
+        XCTAssertEqual(Set(set.answers.map(\.id)).count, 2, "duplicate IDs must be replaced")
+        XCTAssertEqual(set.answers.first?.id, shared)
+    }
+
+    func testRoundTripKeepsAValidSet() throws {
+        let data = try JSONEncoder().encode(AnswerSet.original)
+        XCTAssertEqual(try JSONDecoder().decode(AnswerSet.self, from: data), .original)
+    }
+}
+
 final class AnswerSetStoreTests: XCTestCase {
     var dir: URL!
 

@@ -24,6 +24,38 @@ public struct AnswerSet: Codable, Equatable, Sendable {
         self.answers = answers
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, name, answers
+    }
+
+    /// Decodes, then applies the same rules as editing: trims text, drops
+    /// empty or overlong answers and case-insensitive duplicates, and gives
+    /// any repeated ID a fresh one so list identity and delete stay correct.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        name = try container.decode(String.self, forKey: .name)
+        answers = Self.sanitised(try container.decode([Answer].self, forKey: .answers))
+    }
+
+    static func sanitised(_ raw: [Answer]) -> [Answer] {
+        var seenText = Set<String>()
+        var seenIDs = Set<UUID>()
+        var result: [Answer] = []
+        for var answer in raw {
+            let clean = answer.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !clean.isEmpty, clean.count <= maxAnswerLength else { continue }
+            guard seenText.insert(clean.lowercased()).inserted else { continue }
+            answer.text = clean
+            if !seenIDs.insert(answer.id).inserted {
+                answer.id = UUID()
+                seenIDs.insert(answer.id)
+            }
+            result.append(answer)
+        }
+        return result
+    }
+
     public func answers(withTone tone: AnswerTone) -> [Answer] {
         answers.filter { $0.tone == tone }
     }
