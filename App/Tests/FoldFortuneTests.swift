@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 import FortuneCore
 @testable import FoldFortune
 
@@ -108,6 +109,14 @@ final class FoldFortuneTests: XCTestCase {
         XCTAssertEqual(options.mockQuestion, "Q?")
         defaults.set("sideways", forKey: "mockFold")
         XCTAssertNil(LaunchOptions(defaults: defaults).mockFold)
+    }
+
+    func testShareCardRendersAt1080By1350() throws {
+        let card = ShareCard(question: "Will the bus be on time?", answer: AnswerSet.original.answers[0])
+        let png = try XCTUnwrap(ShareCardView.renderPNG(card))
+        let image = try XCTUnwrap(UIImage(data: png)?.cgImage)
+        XCTAssertEqual(image.width, 1080)
+        XCTAssertEqual(image.height, 1350)
     }
 
     func testHingeMappingWithoutHingeIsUnavailable() {
