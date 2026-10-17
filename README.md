@@ -52,6 +52,28 @@ Packages/FortuneCore         Pure Swift logic package, no SwiftUI or UIKit, buil
 
 After a reveal, Share opens the system share sheet with a 1080 by 1350 image of the question, the open pod and the answer (`ShareCardView`). Apps that only take text get the plain text from `FortuneCore.ShareCard` instead. Questions over 100 characters are shortened on a word boundary. Nothing leaves the phone except through the share sheet.
 
+## Screenshots
+
+`FoldFortuneUITests/ScreenshotTests` captures four screenshots for the README and App Store. Each launches the app in a fixed state with `-mockFold closed|half|open|tap` and `-mockQuestion "..."`, using the original answers in memory and a seeded answer, so the images are the same on every run:
+
+| File | State |
+| --- | --- |
+| `duo-outer-ask.png` | Closed, question typed on the outer display |
+| `duo-half-open.png` | Partly open, pod opening |
+| `duo-inner-reveal.png` | Open, answer revealed |
+| `iphone-tap-reveal.png` | iPhone without a hinge, revealed by tapping |
+
+CI runs them on every push. It uses an iPhone Duo simulator when one can be created, otherwise the newest Pro Max (1320 by 2868, the App Store 6.9 inch size), and uploads the PNGs as the `Screenshots` artifact. To capture them yourself:
+
+```sh
+xcodegen generate
+TEST_RUNNER_SCREENSHOT_DIR="$PWD/docs/screenshots" xcodebuild test \
+  -project FoldFortune.xcodeproj -scheme FoldFortuneScreenshots \
+  -destination 'platform=iOS Simulator,name=iPhone Duo' CODE_SIGNING_ALLOWED=NO
+```
+
+The hosted CI image can't create an iPhone Duo simulator yet ("Incompatible device" on the iOS 27.2 runtime), so the fold states there are driven by the mock on a 6.9 inch iPhone. Capture the Duo set on a Mac with the iPhone Duo simulator.
+
 ## Build
 
 Logic package (Linux or macOS):

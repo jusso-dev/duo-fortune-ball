@@ -68,7 +68,7 @@ schemes:
       targets:
         - FoldFortuneTests
         # FortuneCoreTests run once, in CI's `swift test` step, not again here.
-  # Captures docs/screenshots. See README "Screenshots".
+  # Captures the README and App Store screenshots. See README "Screenshots".
   FoldFortuneScreenshots:
     build:
       targets:
