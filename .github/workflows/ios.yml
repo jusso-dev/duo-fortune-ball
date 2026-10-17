@@ -1,0 +1,151 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: FortuneCore tests and app build (hosted Xcode 27)
+    # Hosted arm64 preview image with Xcode 27.0 and 27.2 beta, iOS 27.1 SDK and runtime.
+    runs-on: xcode-27
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List installed Xcodes and SDKs
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          for x in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V -r); do
+            echo "== $x"
+            DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version || true
+            DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -showsdks 2>/dev/null | grep -i iphonesimulator || true
+          done
+
+      # The app targets iOS 27.1, the first SDK with the iPhone Duo hinge APIs
+      # (DeviceHinge, onHingeChange). Pick the newest Xcode whose iOS simulator
+      # SDK is 27.1 or later. If none is installed, fail loudly rather than fake a pass.
+      - name: Select newest Xcode with the iPhone Duo SDK
+        run: |
+          picked=""
+          for x in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V -r); do
+            sdk=$(DEVELOPER_DIR="$x/Contents/Developer" xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null || true)
+            echo "$x -> iphonesimulator SDK ${sdk:-none}"
+            if [ -n "$sdk" ] && [ "$(printf '%s\n27.1\n' "$sdk" | sort -V | head -1)" = "27.1" ]; then
+              picked="$x"; break
+            fi
+          done
+          if [ -z "$picked" ]; then
+            echo "::error::No Xcode on this runner image has an iOS 27.1+ simulator SDK (needed for the iPhone Duo hinge APIs)."
+            exit 1
+          fi
+          sudo xcode-select -s "$picked/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+
+      - name: FortuneCore swift test
+        working-directory: Packages/FortuneCore
+        run: swift test --parallel
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # The image only ships the iOS 27.0 simulator runtime. If no 27.1+ runtime
+      # is installed, download the one that matches the selected Xcode.
+      - name: Ensure an iOS 27.1+ simulator runtime
+        run: |
+          has_rt() {
+            xcrun simctl list -j runtimes | python3 -c '
+          import json, re, sys
+          ok = any(r.get("platform", "iOS") == "iOS" and r.get("isAvailable", True)
+                   and tuple(int(x) for x in re.findall(r"\d+", r["version"])[:2]) >= (27, 1)
+                   for r in json.load(sys.stdin)["runtimes"])
+          sys.exit(0 if ok else 1)
+          '
+          }
+          if has_rt; then echo "iOS 27.1+ runtime already installed"; else
+            echo "Downloading the iOS simulator runtime for $(xcodebuild -version | head -1)"
+            xcodebuild -downloadPlatform iOS
+            xcrun simctl list runtimes
+            has_rt || { echo "::error::Downloaded runtime is still older than iOS 27.1."; exit 1; }
+          fi
+
+      # The image has no pre-made iOS 27.1 simulators, so create one. Use an
+      # iPhone Duo device type if this Xcode ships one, otherwise the newest iPhone.
+      - name: Create an iPhone simulator (iOS 27.1 or later)
+        id: sim
+        run: |
+          echo "== Device types"; xcrun simctl list devicetypes
+          echo "== Runtimes"; xcrun simctl list runtimes
+          read -r RUNTIME DEVTYPE NAME <<< "$(python3 -c '
+          import json, re, subprocess
+          j = lambda *a: json.loads(subprocess.check_output(["xcrun", "simctl", "list", "-j", *a]))
+          def ver(s):
+              m = re.match(r"(\d+)\.(\d+)", s)
+              return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+          rts = [r for r in j("runtimes")["runtimes"]
+                 if r.get("platform", "iOS") == "iOS" and r.get("isAvailable", True) and ver(r["version"]) >= (27, 1)]
+          rts.sort(key=lambda r: ver(r["version"]))
+          if not rts:
+              print("", "", ""); raise SystemExit
+          rt = rts[-1]
+          supported = rt.get("supportedDeviceTypes") or j("devicetypes")["devicetypes"]
+          phones = [d for d in supported if d["name"].startswith("iPhone")]
+          duo = [d for d in phones if "Duo" in d["name"]]
+          def model(d):
+              m = re.match(r"iPhone (\d+)", d["name"])
+              return (int(m.group(1)) if m else 0, "Pro" in d["name"], "Max" not in d["name"])
+          phones.sort(key=model)
+          order = duo + phones[::-1]
+          print(rt["identifier"], ",".join(d["identifier"] + "=" + d["name"].replace(" ", "_") for d in order), "")
+          ')"
+          if [ -z "$RUNTIME" ] || [ -z "$DEVTYPE" ]; then
+            echo "::error::No iOS 27.1+ simulator runtime with an iPhone device type on this image."
+            exit 1
+          fi
+          # Try an iPhone Duo first, then the newest iPhone. Some device types are
+          # listed but refuse to create on this runtime ("Incompatible device").
+          SIM_ID=""
+          for pair in ${DEVTYPE//,/ }; do
+            NAME="${pair#*=}"
+            if SIM_ID=$(xcrun simctl create "CI ${NAME//_/ }" "${pair%%=*}" "$RUNTIME" 2>sim.err); then break; fi
+            echo "Could not create ${NAME//_/ }: $(cat sim.err)"; SIM_ID=""
+          done
+          [ -n "$SIM_ID" ] || { echo "::error::Could not create any iPhone simulator on $RUNTIME."; exit 1; }
+          case "$NAME" in
+            *Duo*) echo "::notice::Simulator: ${NAME//_/ } on $RUNTIME (iPhone Duo device type)." ;;
+            *) echo "::notice::Simulator: ${NAME//_/ } on $RUNTIME. No iPhone Duo simulator could be created, so hinge paths run the no-hinge fallback." ;;
+          esac
+          xcrun simctl list devices | grep "$SIM_ID"
+          echo "id=$SIM_ID" >> "$GITHUB_OUTPUT"
+
+      - name: xcodebuild build test
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project FoldFortune.xcodeproj \
+            -scheme FoldFortune \
+            -destination "id=${{ steps.sim.outputs.id }}" \
+            -resultBundlePath build/TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            build test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults
+          path: build/TestResults.xcresult
+          if-no-files-found: ignore
