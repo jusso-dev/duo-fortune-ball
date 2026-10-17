@@ -38,17 +38,18 @@ open class BroadcastFoldStateService: FoldStateService, @unchecked Sendable {
     public var updates: AsyncStream<FoldPosture> {
         let (stream, continuation) = AsyncStream<FoldPosture>.makeStream(bufferingPolicy: .bufferingNewest(16))
         let id = UUID()
-        lock.lock()
-        continuations[id] = continuation
-        let snapshot = _current
-        lock.unlock()
-        continuation.yield(snapshot)
         continuation.onTermination = { [weak self] _ in
             guard let self else { return }
             self.lock.lock()
             self.continuations[id] = nil
             self.lock.unlock()
         }
+        // Register and yield the snapshot under the lock, so a concurrent
+        // send can't slip a newer posture in ahead of a stale snapshot.
+        lock.lock()
+        continuations[id] = continuation
+        continuation.yield(_current)
+        lock.unlock()
         return stream
     }
 
@@ -68,27 +69,39 @@ open class BroadcastFoldStateService: FoldStateService, @unchecked Sendable {
             return false
         }
         _current = posture
-        let targets = Array(continuations.values)
+        // Yield under the lock so racing sends reach every subscriber in the
+        // same order they changed `current`. Yield never blocks.
+        for continuation in continuations.values { continuation.yield(posture) }
         lock.unlock()
-        for continuation in targets { continuation.yield(posture) }
         return true
     }
 }
 
 /// A scriptable fold state for tests, previews and the simulator.
 public final class MockFoldStateService: BroadcastFoldStateService, @unchecked Sendable {
+    private let historyLock = NSLock()
+    private var _history: [FoldPosture]
+
     /// Every posture sent, in order, including the initial one.
-    public private(set) var history: [FoldPosture]
+    public var history: [FoldPosture] {
+        historyLock.lock()
+        defer { historyLock.unlock() }
+        return _history
+    }
 
     public override init(initial: FoldPosture = .closed) {
-        history = [initial]
+        _history = [initial]
         super.init(initial: initial)
     }
 
     @discardableResult
     public override func send(_ posture: FoldPosture) -> Bool {
+        // Hold the history lock across the send so history order matches
+        // the order postures were published.
+        historyLock.lock()
+        defer { historyLock.unlock() }
         let changed = super.send(posture)
-        if changed { history.append(posture) }
+        if changed { _history.append(posture) }
         return changed
     }
 
