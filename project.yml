@@ -48,6 +48,17 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: dev.jusso.duofortuneball.tests
+  FoldFortuneUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - App/UITests
+    dependencies:
+      - target: FoldFortune
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jusso.duofortuneball.uitests
 schemes:
   FoldFortune:
     build:
@@ -57,3 +68,12 @@ schemes:
       targets:
         - FoldFortuneTests
         # FortuneCoreTests run once, in CI's `swift test` step, not again here.
+  # Captures the README and App Store screenshots. See README "Screenshots".
+  FoldFortuneScreenshots:
+    build:
+      targets:
+        FoldFortune: all
+        FoldFortuneUITests: [test]
+    test:
+      targets:
+        - FoldFortuneUITests
